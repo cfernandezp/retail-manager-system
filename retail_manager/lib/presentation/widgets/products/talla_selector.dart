@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/product_models.dart' as models;
+import '../common/safe_hover_widget.dart';
 
 /// Widget selector de tallas con visualización especializada para medias
 class TallaSelector extends StatelessWidget {
@@ -58,63 +59,61 @@ class TallaSelector extends StatelessWidget {
   }
 
   Widget _buildTallaChip(models.Talla talla, bool isSelected) {
-    return Material(
+    return SafeMaterialButton(
       elevation: isSelected ? 4 : 1,
       borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: () => onTallaChanged(isSelected ? null : talla.id),
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
+      backgroundColor: Colors.white,
+      onTap: () => onTallaChanged(isSelected ? null : talla.id),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected 
+                ? AppTheme.primaryTurquoise 
+                : Colors.grey[300]!,
+            width: isSelected ? 2 : 1,
+          ),
+          color: isSelected 
+              ? AppTheme.primaryTurquoise.withOpacity(0.1)
+              : Colors.transparent,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Icono de talla
+            Icon(
+              _getTallaIcon(talla.tipo),
+              size: 24,
               color: isSelected 
                   ? AppTheme.primaryTurquoise 
-                  : Colors.grey[300]!,
-              width: isSelected ? 2 : 1,
+                  : AppTheme.textSecondaryColor,
             ),
-            color: isSelected 
-                ? AppTheme.primaryTurquoise.withOpacity(0.1)
-                : Colors.white,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Icono de talla
-              Icon(
-                _getTallaIcon(talla.tipo),
-                size: 24,
+            const SizedBox(height: 6),
+            
+            // Valor de talla
+            Text(
+              talla.valor,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected 
+                    ? AppTheme.primaryTurquoise 
+                    : AppTheme.textPrimary,
+              ),
+            ),
+            
+            // Tipo de talla
+            Text(
+              _getTipoLabel(talla.tipo),
+              style: TextStyle(
+                fontSize: 10,
                 color: isSelected 
                     ? AppTheme.primaryTurquoise 
                     : AppTheme.textSecondaryColor,
               ),
-              const SizedBox(height: 6),
-              
-              // Valor de talla
-              Text(
-                talla.valor,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                  color: isSelected 
-                      ? AppTheme.primaryTurquoise 
-                      : AppTheme.textPrimary,
-                ),
-              ),
-              
-              // Tipo de talla
-              Text(
-                _getTipoLabel(talla.tipo),
-                style: TextStyle(
-                  fontSize: 10,
-                  color: isSelected 
-                      ? AppTheme.primaryTurquoise 
-                      : AppTheme.textSecondaryColor,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

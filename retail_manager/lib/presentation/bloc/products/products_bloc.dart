@@ -34,15 +34,28 @@ class ProductsBloc extends Bloc<ProductsEvent, ProductsState> {
     emit(const ProductsLoading());
 
     try {
+      print('🔄 [ProductsBloc] Iniciando carga de productos...');
+      
+      print('🔄 [ProductsBloc] Cargando catálogo completo...');
       final result = await _repository.getCatalogoCompleto(
         filters: event.filters,
         pagination: event.pagination,
       );
+      print('✅ [ProductsBloc] Catálogo cargado: ${result.data.length} productos');
 
+      print('🔄 [ProductsBloc] Cargando marcas...');
       final marcas = await _repository.getMarcas();
-      final categorias = await _repository.getCategorias();
-      final tallas = await _repository.getTallas();
+      print('✅ [ProductsBloc] Marcas cargadas: ${marcas.length} marcas');
 
+      print('🔄 [ProductsBloc] Cargando categorías...');
+      final categorias = await _repository.getCategorias();
+      print('✅ [ProductsBloc] Categorías cargadas: ${categorias.length} categorías');
+
+      print('🔄 [ProductsBloc] Cargando tallas...');
+      final tallas = await _repository.getTallas();
+      print('✅ [ProductsBloc] Tallas cargadas: ${tallas.length} tallas');
+
+      print('✅ [ProductsBloc] Emitiendo ProductsLoaded...');
       emit(ProductsLoaded(
         products: result.data,
         totalCount: result.totalCount,
@@ -54,7 +67,10 @@ class ProductsBloc extends Bloc<ProductsEvent, ProductsState> {
         categorias: categorias,
         tallas: tallas,
       ));
-    } catch (e) {
+      print('🎉 [ProductsBloc] ProductsLoaded emitido exitosamente');
+    } catch (e, stackTrace) {
+      print('❌ [ProductsBloc] Error al cargar productos: $e');
+      print('📊 [ProductsBloc] StackTrace: $stackTrace');
       emit(ProductsError('Error al cargar productos: $e'));
     }
   }

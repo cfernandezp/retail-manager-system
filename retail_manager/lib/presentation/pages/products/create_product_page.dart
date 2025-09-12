@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/product_models.dart' as models;
+import '../../../data/repositories/products_repository_simple.dart';
 import '../../bloc/products/products_bloc.dart';
 import '../../widgets/products/color_selector.dart';
 import '../../widgets/products/talla_selector.dart';
@@ -23,6 +24,7 @@ class _CreateProductPageState extends State<CreateProductPage>
     with TickerProviderStateMixin {
   late PageController _pageController;
   late AnimationController _animationController;
+  late ProductsRepository _productsRepository;
   
   int _currentStep = 0;
   final int _totalSteps = 3;
@@ -34,6 +36,7 @@ class _CreateProductPageState extends State<CreateProductPage>
   final _newMarcaController = TextEditingController();
   final _newCategoriaController = TextEditingController();
   final _newMaterialController = TextEditingController();
+  final _newTallaController = TextEditingController();
   
   // Selection state
   String? _selectedMarcaId;
@@ -57,6 +60,7 @@ class _CreateProductPageState extends State<CreateProductPage>
   bool _showNewMarcaField = false;
   bool _showNewCategoriaField = false;
   bool _showNewMaterialField = false;
+  bool _showNewTallaField = false;
 
   @override
   void initState() {
@@ -66,6 +70,7 @@ class _CreateProductPageState extends State<CreateProductPage>
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
+    _productsRepository = ProductsRepository();
     
     _loadInitialData();
   }
@@ -79,54 +84,414 @@ class _CreateProductPageState extends State<CreateProductPage>
     _newMarcaController.dispose();
     _newCategoriaController.dispose();
     _newMaterialController.dispose();
+    _newTallaController.dispose();
     super.dispose();
   }
 
   void _loadInitialData() async {
+    // ========================================================================
+    // SISTEMA DE LOGGING COMPLETO PARA DEBUGGING REMOTO
+    // ========================================================================
+    final timestamp = DateTime.now();
+    print('');
+    print('==================== [DROPDOWN_DEBUG] ====================');
+    print('⏰ TIMESTAMP: $timestamp');
+    print('🚀 INICIANDO: Carga completa de datos para dropdowns');
+    print('📱 CONTEXTO: CreateProductPage._loadInitialData()');
+    print('===========================================================');
+    
+    // Estado inicial de UI
+    print('');
+    print('=== [UI_STATE] ESTADO INICIAL ===');
+    print('🔄 _isLoading: $_isLoading (antes de setState)');
+    print('📊 Listas actuales:');
+    print('   • _marcas.length: ${_marcas.length}');
+    print('   • _categorias.length: ${_categorias.length}'); 
+    print('   • _tallas.length: ${_tallas.length}');
+    print('   • _materiales.length: ${_materiales.length}');
+    print('   • _tiendas.length: ${_tiendas.length}');
+    print('=== FIN UI_STATE INICIAL ===\n');
+    
     setState(() => _isLoading = true);
     
+    print('=== [UI_STATE] DESPUÉS DE setState ===');
+    print('🔄 _isLoading: $_isLoading (después de setState)');
+    print('✅ setState ejecutado correctamente');
+    print('=== FIN UI_STATE DESPUÉS DE setState ===\n');
+    
     try {
-      // En una implementación real, cargarías desde el ProductsBloc
-      // Por ahora usamos datos mock
-      _marcas = [
-        models.Marca(id: '1', nombre: 'Arley', createdAt: DateTime.now()),
-        models.Marca(id: '2', nombre: 'Bambú', createdAt: DateTime.now()),
-        models.Marca(id: '3', nombre: 'Cotton Club', createdAt: DateTime.now()),
-      ];
+      // Verificar conexión a repository
+      print('=== [CONNECTION_CHECK] VERIFICACIÓN DE CONEXIÓN ===');
+      print('📡 ProductsRepository instanciado: ${_productsRepository != null}');
+      print('📡 Tipo de repository: ${_productsRepository.runtimeType}');
+      print('=== FIN CONNECTION_CHECK ===\n');
       
-      _categorias = [
-        models.Categoria(id: '1', nombre: 'Medias Deportivas', createdAt: DateTime.now()),
-        models.Categoria(id: '2', nombre: 'Medias Casuales', createdAt: DateTime.now()),
-        models.Categoria(id: '3', nombre: 'Medias Formales', createdAt: DateTime.now()),
-      ];
+      // ========================================================================
+      // CARGA DE MARCAS
+      // ========================================================================
+      print('=== [DROPDOWN_DEBUG] ${DateTime.now()} ===');
+      print('🔄 INICIANDO carga de MARCAS...');
+      print('📍 Método: _productsRepository.getMarcas()');
       
-      _tallas = [
-        models.Talla(id: '1', valor: '9-12', tipo: models.TipoTalla.rango, createdAt: DateTime.now()),
-        models.Talla(id: '2', valor: '6-8', tipo: models.TipoTalla.rango, createdAt: DateTime.now()),
-        models.Talla(id: '3', valor: 'Única', tipo: models.TipoTalla.unica, createdAt: DateTime.now()),
-      ];
+      try {
+        final marcas = await _productsRepository.getMarcas();
+        print('✅ MARCAS: ${marcas.length} registros cargados exitosamente');
+        
+        if (marcas.isNotEmpty) {
+          print('📋 Primeras 3 marcas:');
+          for (int i = 0; i < marcas.length && i < 3; i++) {
+            final marca = marcas[i];
+            print('   ${i+1}. ID: ${marca.id} | Nombre: "${marca.nombre}"');
+          }
+          
+          if (marcas.length > 3) {
+            print('   ... y ${marcas.length - 3} marcas más');
+          }
+          
+          // Validar estructura de datos
+          final primeraMarca = marcas.first;
+          print('🔍 Estructura primera marca:');
+          try {
+            print('   JSON: ${primeraMarca.toJson()}');
+          } catch (e) {
+            print('   ⚠️ Error al serializar marca: $e');
+          }
+        } else {
+          print('⚠️ ALERTA: Lista de marcas está COMPLETAMENTE VACÍA');
+          print('🚨 POSIBLES CAUSAS:');
+          print('   1. Tabla "marcas" vacía en BD');
+          print('   2. Error en query SQL');
+          print('   3. Problema de permisos RLS');
+          print('   4. Conexión a BD fallida');
+        }
+        
+        _marcas = marcas;
+        print('💾 Variable _marcas asignada: ${_marcas.length} registros');
+        
+      } catch (e, stackTrace) {
+        print('❌ ERROR MARCAS: $e');
+        print('📜 STACK TRACE MARCAS:');
+        print('$stackTrace');
+        print('🚨 Error específico al cargar marcas - proceso continuará');
+        _marcas = []; // Lista vacía para evitar errores
+      }
       
-      _materiales = [
-        models.Material(id: '1', nombre: 'Algodón', createdAt: DateTime.now()),
-        models.Material(id: '2', nombre: 'Nylon', createdAt: DateTime.now()),
-        models.Material(id: '3', nombre: 'Poliéster', createdAt: DateTime.now()),
-      ];
+      print('=== FIN MARCAS DEBUG ===\n');
       
-      _tiendas = [
-        models.Tienda(id: '1', nombre: 'Tienda Principal', direccion: 'Centro Lima', adminTiendaId: '1', createdAt: DateTime.now()),
-        models.Tienda(id: '2', nombre: 'Sucursal Norte', direccion: 'Comas', adminTiendaId: '2', createdAt: DateTime.now()),
-        models.Tienda(id: '3', nombre: 'Sucursal Este', direccion: 'Ate', adminTiendaId: '3', createdAt: DateTime.now()),
-      ];
+      // ========================================================================
+      // CARGA DE CATEGORÍAS
+      // ========================================================================
+      print('=== [DROPDOWN_DEBUG] ${DateTime.now()} ===');
+      print('🔄 INICIANDO carga de CATEGORÍAS...');
+      print('📍 Método: _productsRepository.getCategorias()');
       
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al cargar datos: $e'),
-          backgroundColor: AppTheme.errorColor,
-        ),
-      );
+      try {
+        final categorias = await _productsRepository.getCategorias();
+        print('✅ CATEGORÍAS: ${categorias.length} registros cargados exitosamente');
+        
+        if (categorias.isNotEmpty) {
+          print('📋 Primeras 3 categorías:');
+          for (int i = 0; i < categorias.length && i < 3; i++) {
+            final categoria = categorias[i];
+            print('   ${i+1}. ID: ${categoria.id} | Nombre: "${categoria.nombre}"');
+          }
+          
+          if (categorias.length > 3) {
+            print('   ... y ${categorias.length - 3} categorías más');
+          }
+          
+          // Validar estructura de datos
+          final primeraCategoria = categorias.first;
+          print('🔍 Estructura primera categoría:');
+          try {
+            print('   JSON: ${primeraCategoria.toJson()}');
+          } catch (e) {
+            print('   ⚠️ Error al serializar categoría: $e');
+          }
+        } else {
+          print('⚠️ ALERTA: Lista de categorías está COMPLETAMENTE VACÍA');
+          print('🚨 POSIBLES CAUSAS:');
+          print('   1. Tabla "categorias" vacía en BD');
+          print('   2. Error en query SQL');
+          print('   3. Problema de permisos RLS');
+          print('   4. Conexión a BD fallida');
+        }
+        
+        _categorias = categorias;
+        print('💾 Variable _categorias asignada: ${_categorias.length} registros');
+        
+      } catch (e, stackTrace) {
+        print('❌ ERROR CATEGORÍAS: $e');
+        print('📜 STACK TRACE CATEGORÍAS:');
+        print('$stackTrace');
+        print('🚨 Error específico al cargar categorías - proceso continuará');
+        _categorias = []; // Lista vacía para evitar errores
+      }
+      
+      print('=== FIN CATEGORÍAS DEBUG ===\n');
+      
+      // ========================================================================
+      // CARGA DE TALLAS
+      // ========================================================================
+      print('=== [DROPDOWN_DEBUG] ${DateTime.now()} ===');
+      print('🔄 INICIANDO carga de TALLAS...');
+      print('📍 Método: _productsRepository.getTallas()');
+      
+      try {
+        final tallas = await _productsRepository.getTallas();
+        print('✅ TALLAS: ${tallas.length} registros cargados exitosamente');
+        
+        if (tallas.isNotEmpty) {
+          print('📋 Primeras 5 tallas:');
+          for (int i = 0; i < tallas.length && i < 5; i++) {
+            final talla = tallas[i];
+            print('   ${i+1}. ID: ${talla.id} | Valor: "${talla.valor}" | Display: "${talla.displayName}"');
+          }
+          
+          if (tallas.length > 5) {
+            print('   ... y ${tallas.length - 5} tallas más');
+          }
+          
+          // Validar estructura de datos
+          final primeraTalla = tallas.first;
+          print('🔍 Estructura primera talla:');
+          try {
+            print('   JSON: ${primeraTalla.toJson()}');
+          } catch (e) {
+            print('   ⚠️ Error al serializar talla: $e');
+          }
+        } else {
+          print('⚠️ ALERTA: Lista de tallas está COMPLETAMENTE VACÍA');
+          print('🚨 POSIBLES CAUSAS:');
+          print('   1. Tabla "tallas" vacía en BD');
+          print('   2. Error en query SQL');
+          print('   3. Problema de permisos RLS');
+          print('   4. Conexión a BD fallida');
+        }
+        
+        _tallas = tallas;
+        print('💾 Variable _tallas asignada: ${_tallas.length} registros');
+        
+      } catch (e, stackTrace) {
+        print('❌ ERROR TALLAS: $e');
+        print('📜 STACK TRACE TALLAS:');
+        print('$stackTrace');
+        print('🚨 Error específico al cargar tallas - proceso continuará');
+        _tallas = []; // Lista vacía para evitar errores
+      }
+      
+      print('=== FIN TALLAS DEBUG ===\n');
+      
+      // ========================================================================
+      // CARGA DE MATERIALES
+      // ========================================================================
+      print('=== [DROPDOWN_DEBUG] ${DateTime.now()} ===');
+      print('🔄 INICIANDO carga de MATERIALES...');
+      print('📍 Método: _productsRepository.getMateriales()');
+      
+      try {
+        final materiales = await _productsRepository.getMateriales();
+        print('✅ MATERIALES: ${materiales.length} registros cargados exitosamente');
+        
+        if (materiales.isNotEmpty) {
+          print('📋 Primeros 3 materiales:');
+          for (int i = 0; i < materiales.length && i < 3; i++) {
+            final material = materiales[i];
+            print('   ${i+1}. ID: ${material.id} | Nombre: "${material.nombre}"');
+          }
+          
+          if (materiales.length > 3) {
+            print('   ... y ${materiales.length - 3} materiales más');
+          }
+          
+          // Validar estructura de datos
+          final primerMaterial = materiales.first;
+          print('🔍 Estructura primer material:');
+          try {
+            print('   JSON: ${primerMaterial.toJson()}');
+          } catch (e) {
+            print('   ⚠️ Error al serializar material: $e');
+          }
+        } else {
+          print('⚠️ ALERTA: Lista de materiales está COMPLETAMENTE VACÍA');
+          print('🚨 POSIBLES CAUSAS:');
+          print('   1. Tabla "materiales" vacía en BD');
+          print('   2. Error en query SQL');
+          print('   3. Problema de permisos RLS');
+          print('   4. Conexión a BD fallida');
+        }
+        
+        _materiales = materiales;
+        print('💾 Variable _materiales asignada: ${_materiales.length} registros');
+        
+      } catch (e, stackTrace) {
+        print('❌ ERROR MATERIALES: $e');
+        print('📜 STACK TRACE MATERIALES:');
+        print('$stackTrace');
+        print('🚨 Error específico al cargar materiales - proceso continuará');
+        _materiales = []; // Lista vacía para evitar errores
+      }
+      
+      print('=== FIN MATERIALES DEBUG ===\n');
+      
+      // ========================================================================
+      // CARGA DE TIENDAS
+      // ========================================================================
+      print('=== [DROPDOWN_DEBUG] ${DateTime.now()} ===');
+      print('🔄 INICIANDO carga de TIENDAS...');
+      print('📍 Método: _productsRepository.getTiendas()');
+      
+      try {
+        final tiendas = await _productsRepository.getTiendas();
+        print('✅ TIENDAS: ${tiendas.length} registros cargados exitosamente');
+        
+        if (tiendas.isNotEmpty) {
+          print('📋 Primeras 3 tiendas:');
+          for (int i = 0; i < tiendas.length && i < 3; i++) {
+            final tienda = tiendas[i];
+            print('   ${i+1}. ID: ${tienda.id} | Nombre: "${tienda.nombre}" | Dirección: "${tienda.direccion}"');
+          }
+          
+          if (tiendas.length > 3) {
+            print('   ... y ${tiendas.length - 3} tiendas más');
+          }
+          
+          // Validar estructura de datos
+          final primeraTienda = tiendas.first;
+          print('🔍 Estructura primera tienda:');
+          try {
+            print('   JSON: ${primeraTienda.toJson()}');
+          } catch (e) {
+            print('   ⚠️ Error al serializar tienda: $e');
+          }
+        } else {
+          print('⚠️ ALERTA: Lista de tiendas está COMPLETAMENTE VACÍA');
+          print('🚨 POSIBLES CAUSAS:');
+          print('   1. Tabla "tiendas" vacía en BD');
+          print('   2. Error en query SQL');
+          print('   3. Problema de permisos RLS');
+          print('   4. Conexión a BD fallida');
+        }
+        
+        _tiendas = tiendas;
+        print('💾 Variable _tiendas asignada: ${_tiendas.length} registros');
+        
+      } catch (e, stackTrace) {
+        print('❌ ERROR TIENDAS: $e');
+        print('📜 STACK TRACE TIENDAS:');
+        print('$stackTrace');
+        print('🚨 Error específico al cargar tiendas - proceso continuará');
+        _tiendas = []; // Lista vacía para evitar errores
+      }
+      
+      print('=== FIN TIENDAS DEBUG ===\n');
+      
+      // ========================================================================
+      // RESUMEN FINAL COMPLETO
+      // ========================================================================
+      print('');
+      print('================== [RESUMEN_FINAL] ==================');
+      print('🎯 CARGA DE DATOS COMPLETADA');
+      print('⏰ Timestamp final: ${DateTime.now()}');
+      print('');
+      print('📊 RESULTADOS POR DROPDOWN:');
+      print('   📦 MARCAS........: ${_marcas.length} registros ${_marcas.isEmpty ? "❌ VACÍO" : "✅"}');
+      print('   📂 CATEGORÍAS....: ${_categorias.length} registros ${_categorias.isEmpty ? "❌ VACÍO" : "✅"}');
+      print('   📏 TALLAS........: ${_tallas.length} registros ${_tallas.isEmpty ? "❌ VACÍO" : "✅"}');
+      print('   🧵 MATERIALES....: ${_materiales.length} registros ${_materiales.isEmpty ? "❌ VACÍO" : "✅"}');
+      print('   🏪 TIENDAS.......: ${_tiendas.length} registros ${_tiendas.isEmpty ? "❌ VACÍO" : "✅"}');
+      print('');
+      
+      // Verificar estado crítico
+      final totalRegistros = _marcas.length + _categorias.length + _tallas.length + _materiales.length + _tiendas.length;
+      final dropdownsVacios = [_marcas, _categorias, _tallas, _materiales, _tiendas]
+          .where((lista) => lista.isEmpty).length;
+      
+      print('📈 ESTADÍSTICAS GLOBALES:');
+      print('   • Total registros cargados: $totalRegistros');
+      print('   • Dropdowns con datos: ${5 - dropdownsVacios}/5');
+      print('   • Dropdowns vacíos: $dropdownsVacios/5');
+      print('');
+      
+      if (dropdownsVacios == 0) {
+        print('🎉 ¡ÉXITO COMPLETO! Todos los dropdowns tienen datos');
+        print('✅ La UI debería funcionar correctamente');
+      } else {
+        print('⚠️ PROBLEMAS DETECTADOS:');
+        print('🚨 $dropdownsVacios dropdowns están vacíos');
+        print('❌ La UI mostrará la vista de debug');
+        
+        if (_marcas.isEmpty) print('   • MARCAS: Lista vacía');
+        if (_categorias.isEmpty) print('   • CATEGORÍAS: Lista vacía');
+        if (_tallas.isEmpty) print('   • TALLAS: Lista vacía');
+        if (_materiales.isEmpty) print('   • MATERIALES: Lista vacía');
+        if (_tiendas.isEmpty) print('   • TIENDAS: Lista vacía');
+      }
+      
+      print('================== FIN RESUMEN_FINAL ==================');
+      print('');
+      
+    } catch (e, stackTrace) {
+      // ========================================================================
+      // MANEJO DE ERRORES CRÍTICOS
+      // ========================================================================
+      print('');
+      print('🚨🚨🚨 [ERROR_CRÍTICO] 🚨🚨🚨');
+      print('⏰ Timestamp error: ${DateTime.now()}');
+      print('❌ ERROR CRÍTICO GLOBAL al cargar datos');
+      print('📍 Ubicación: _loadInitialData() - try/catch principal');
+      print('');
+      print('🔍 DETALLES DEL ERROR:');
+      print('Tipo: ${e.runtimeType}');
+      print('Mensaje: $e');
+      print('');
+      print('📜 STACK TRACE COMPLETO:');
+      print('$stackTrace');
+      print('');
+      print('📊 ESTADO DE LISTAS AL MOMENTO DEL ERROR:');
+      print('   • _marcas: ${_marcas.length} registros');
+      print('   • _categorias: ${_categorias.length} registros');
+      print('   • _tallas: ${_tallas.length} registros');
+      print('   • _materiales: ${_materiales.length} registros');
+      print('   • _tiendas: ${_tiendas.length} registros');
+      print('🚨🚨🚨 FIN ERROR_CRÍTICO 🚨🚨🚨');
+      print('');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error crítico al cargar datos: $e'),
+            backgroundColor: AppTheme.errorColor,
+            duration: const Duration(seconds: 8), // Más tiempo para errores críticos
+            action: SnackBarAction(
+              label: 'Reintentar',
+              onPressed: () => _loadInitialData(),
+            ),
+          ),
+        );
+      }
     } finally {
-      setState(() => _isLoading = false);
+      // ========================================================================
+      // FINALIZACIÓN Y ACTUALIZACIÓN DE UI
+      // ========================================================================
+      print('');
+      print('=== [UI_STATE] FINALIZACIÓN ===');
+      print('🔄 Ejecutando setState final...');
+      print('📱 mounted: $mounted');
+      
+      if (mounted) {
+        print('✅ Widget está montado, actualizando _isLoading');
+        setState(() => _isLoading = false);
+        print('💾 _isLoading actualizado: $_isLoading');
+        print('🎨 UI se re-renderizará con nuevos datos');
+      } else {
+        print('⚠️ Widget NO está montado, saltando setState');
+      }
+      
+      print('=== FIN UI_STATE FINALIZACIÓN ===');
+      print('');
+      print('==================== FIN DROPDOWN_DEBUG ====================');
+      print('');
     }
   }
 
@@ -136,7 +501,8 @@ class _CreateProductPageState extends State<CreateProductPage>
       backgroundColor: AppTheme.backgroundColor,
       body: _isLoading 
         ? const Center(child: CircularProgressIndicator())
-        : Column(
+        : _hasDebugData()
+        ? Column(
         children: [
           // Header with progress
           _buildHeader(),
@@ -162,8 +528,121 @@ class _CreateProductPageState extends State<CreateProductPage>
           // Navigation buttons
           _buildNavigationButtons(),
         ],
+      )
+      : _buildDebugDataView(), // ⚠️ NUEVO: Vista de debug
+    );
+  }
+  
+  /// Widget temporal de debug para mostrar el estado de los datos
+  Widget _buildDebugDataView() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.red.withOpacity(0.5)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '🚨 DEBUG: PROBLEMA CON DATOS',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text('Estado actual de las listas de datos:'),
+                const SizedBox(height: 8),
+                
+                _buildDebugDataItem('📦 Marcas', _marcas.length, _marcas.take(3).map((m) => m.nombre).join(', ')),
+                _buildDebugDataItem('📂 Categorías', _categorias.length, _categorias.take(3).map((c) => c.nombre).join(', ')),
+                _buildDebugDataItem('📏 Tallas', _tallas.length, _tallas.take(3).map((t) => t.valor).join(', ')),
+                _buildDebugDataItem('🧵 Materiales', _materiales.length, _materiales.take(3).map((m) => m.nombre).join(', ')),
+                _buildDebugDataItem('🏪 Tiendas', _tiendas.length, _tiendas.take(3).map((t) => t.nombre).join(', ')),
+                
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _loadInitialData(); // Reintentar carga
+                    });
+                  },
+                  child: const Text('🔄 Reintentar Carga de Datos'),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
+  }
+  
+  Widget _buildDebugDataItem(String label, int count, String sample) {
+    final isEmpty = count == 0;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$label: ',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: isEmpty ? Colors.red : Colors.green,
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$count registros',
+                  style: TextStyle(
+                    color: isEmpty ? Colors.red : Colors.green,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                if (!isEmpty && sample.isNotEmpty)
+                  Text(
+                    'Ejemplos: $sample',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                if (isEmpty)
+                  const Text(
+                    '❌ LISTA VACÍA - PROBLEMA DETECTADO',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.red,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  /// Verifica si hay datos suficientes para mostrar la UI normal
+  bool _hasDebugData() {
+    // Solo mostrar UI normal si TODAS las listas tienen datos
+    return _marcas.isNotEmpty && 
+           _categorias.isNotEmpty && 
+           _tallas.isNotEmpty && 
+           _materiales.isNotEmpty && 
+           _tiendas.isNotEmpty;
   }
 
   Widget _buildHeader() {
@@ -327,6 +806,11 @@ class _CreateProductPageState extends State<CreateProductPage>
   }
 
   Widget _buildMarcaSelector() {
+    print('🎨 [MarcaSelector] Construyendo widget con ${_marcas.length} marcas');
+    if (_marcas.isEmpty) {
+      print('⚠️ [MarcaSelector] ALERTA: Lista de marcas está vacía en build()');
+    }
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -528,28 +1012,123 @@ class _CreateProductPageState extends State<CreateProductPage>
           ),
         ),
         const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          value: _selectedTallaId,
-          decoration: const InputDecoration(
-            hintText: 'Seleccionar talla',
-            prefixIcon: Icon(Icons.straighten),
-          ),
-          items: _tallas.map(
-            (talla) => DropdownMenuItem(
-              value: talla.id,
-              child: Text(talla.displayName),
+        if (_showNewTallaField) ...[
+          // Mostrar tallas existentes como referencia
+          if (_tallas.isNotEmpty) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryTurquoise.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.primaryTurquoise.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Tallas existentes:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: _tallas.take(8).map((talla) => Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryTurquoise.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        talla.valor.toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    )).toList(),
+                  ),
+                ],
+              ),
             ),
-          ).toList(),
-          onChanged: (value) {
-            setState(() => _selectedTallaId = value);
-          },
-          validator: (value) {
-            if (value == null) {
-              return 'Seleccione una talla';
-            }
-            return null;
-          },
-        ),
+          ],
+          CorporateFormField(
+            controller: _newTallaController,
+            label: 'Nueva Talla',
+            hintText: _tallas.isEmpty 
+              ? 'Ej: 9-12, M, XL, 36, Única' 
+              : 'Ingresa una talla que no esté en la lista superior',
+            validator: (value) {
+              if (value?.isEmpty ?? true) {
+                return 'La talla es requerida';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              ElevatedButton(
+                onPressed: _createNewTalla,
+                child: const Text('Crear Talla'),
+              ),
+              const SizedBox(width: 8),
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _showNewTallaField = false;
+                    _newTallaController.clear();
+                  });
+                },
+                child: const Text('Cancelar'),
+              ),
+            ],
+          ),
+        ] else ...[
+          DropdownButtonFormField<String>(
+            value: _selectedTallaId,
+            decoration: const InputDecoration(
+              hintText: 'Seleccionar talla',
+              prefixIcon: Icon(Icons.straighten),
+            ),
+            items: [
+              ..._tallas.map(
+                (talla) => DropdownMenuItem(
+                  value: talla.id,
+                  child: Text(talla.displayName),
+                ),
+              ),
+              const DropdownMenuItem(
+                value: 'nueva',
+                child: Text(
+                  '+ Crear nueva talla',
+                  style: TextStyle(
+                    color: AppTheme.primaryTurquoise,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+            onChanged: (value) {
+              if (value == 'nueva') {
+                setState(() => _showNewTallaField = true);
+              } else {
+                setState(() => _selectedTallaId = value);
+              }
+            },
+            validator: (value) {
+              if (value == null && !_showNewTallaField) {
+                return 'Seleccione o cree una talla';
+              }
+              return null;
+            },
+          ),
+        ],
       ],
     );
   }
@@ -1011,11 +1590,15 @@ class _CreateProductPageState extends State<CreateProductPage>
   }
 
   bool _canCreateProduct() {
+    // Validar talla: o tiene una seleccionada, o está creando una nueva con campo completo
+    final tallaValida = _selectedTallaId != null || 
+      (_showNewTallaField && _newTallaController.text.trim().isNotEmpty);
+    
     return _nombreController.text.isNotEmpty &&
            (_selectedMarcaId != null || _newMarcaController.text.isNotEmpty) &&
            (_selectedCategoriaId != null || _newCategoriaController.text.isNotEmpty) &&
            (_selectedMaterialId != null || _newMaterialController.text.isNotEmpty) &&
-           _selectedTallaId != null &&
+           tallaValida &&
            _precioController.text.isNotEmpty &&
            _selectedColores.isNotEmpty;
   }
@@ -1126,5 +1709,102 @@ class _CreateProductPageState extends State<CreateProductPage>
     final colorCode = color.substring(0, color.length > 3 ? 3 : color.length).toUpperCase();
     
     return '$marcaCode-$categoriaCode-$colorCode-001';
+  }
+
+  /// Crea una nueva talla usando ProductsRepository
+  void _createNewTalla() async {
+    // Validar campo requerido
+    if (_newTallaController.text.trim().isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('El campo talla es requerido'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+      return;
+    }
+
+    final tallaValue = _newTallaController.text.trim().toLowerCase();
+
+    // 1. VALIDACIÓN PREVIA: Verificar si ya existe una talla con ese código
+    final tallaExistente = _tallas.where((talla) => 
+      talla.valor.toLowerCase() == tallaValue).firstOrNull;
+    
+    if (tallaExistente != null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('La talla "${tallaValue.toUpperCase()}" ya existe'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      // Preparar datos para crear la talla
+      // Usar el mismo valor del campo único para todos los campos de BD
+      final tallaData = {
+        'valor': tallaValue,
+        'codigo': tallaValue, // mismo valor
+        'nombre': tallaValue, // mismo valor
+        'tipo': 'UNICA', // Valor por defecto
+        'orden_display': _tallas.length + 1,
+        'activa': true,
+      };
+
+      // Crear la talla usando el repositorio
+      final nuevaTalla = await _productsRepository.createTalla(tallaData);
+
+      // Agregar la nueva talla a la lista local
+      setState(() {
+        _tallas.add(nuevaTalla);
+        _selectedTallaId = nuevaTalla.id; // Seleccionar automáticamente
+        _showNewTallaField = false; // Volver al dropdown
+      });
+
+      // Limpiar formulario
+      _newTallaController.clear();
+
+      // Mostrar mensaje de éxito
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Talla "${tallaValue.toUpperCase()}" creada exitosamente'),
+            backgroundColor: AppTheme.primaryTurquoise,
+          ),
+        );
+      }
+      
+    } catch (e) {
+      // 2. MANEJO MEJORADO DE ERRORES: Detectar error específico de constraint de unicidad
+      String mensajeError = 'Error al crear talla: ${e.toString()}';
+      
+      if (e.toString().contains('duplicate key') && e.toString().contains('tallas_codigo_key')) {
+        mensajeError = 'La talla ya existe. Intenta con otro nombre.';
+      } else if (e.toString().contains('23505')) {
+        // Código PostgreSQL para violación de constraint de unicidad
+        mensajeError = 'La talla ya existe. Intenta con otro nombre.';
+      }
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(mensajeError),
+            backgroundColor: AppTheme.errorColor,
+            duration: const Duration(seconds: 4), // Más tiempo para leer el mensaje específico
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 }

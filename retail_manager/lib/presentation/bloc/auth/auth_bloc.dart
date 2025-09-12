@@ -48,7 +48,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           .from('usuarios')
           .select('*')
           .eq('id', response.user!.id)
-          .single();
+          .maybeSingle();
 
       if (userData == null) {
         emit(const AuthFailure(error: 'Usuario no encontrado en la base de datos'));
@@ -60,7 +60,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           .from('roles')
           .select('nombre, descripcion, permisos')
           .eq('id', userData['rol_id'])
-          .single();
+          .maybeSingle();
 
       if (roleData == null) {
         emit(const AuthFailure(error: 'Rol de usuario no encontrado'));
@@ -233,7 +233,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
             )
           ''')
           .eq('id', currentUser.id)
-          .single();
+          .maybeSingle();
+
+      if (userData == null) {
+        emit(AuthUnauthenticated());
+        return;
+      }
 
       final estado = userData['estado'] as String? ?? 'INACTIVA';
 

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../common/theme_toggle_button.dart';
+import '../common/safe_hover_widget.dart';
 import '../../bloc/auth/auth_bloc.dart';
 
 /// Sidebar para Desktop (≥1200px) con diseño corporativo optimizado
@@ -180,63 +181,72 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
     required String title,
   }) {
     final isActive = widget.currentRoute == route;
-    final isHovered = hoveredItem == route;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-      child: MouseRegion(
-        onEnter: (_) => setState(() => hoveredItem = route),
-        onExit: (_) => setState(() => hoveredItem = null),
-        child: GestureDetector(
-          onTap: () => widget.onNavigate(route),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: _getItemBackgroundColor(isActive, isHovered),
-              borderRadius: BorderRadius.circular(12),
-              border: isActive ? Border.all(
-                color: AppTheme.primaryColor.withOpacity(0.3),
-                width: 1,
-              ) : null,
-            ),
-            child: Row(
-              children: [
-                // Icono
-                Icon(
-                  icon,
-                  size: 22,
-                  color: _getItemIconColor(isActive, isHovered),
-                ),
-                
-                const SizedBox(width: 12),
-                
-                // Título
-                Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                      color: _getItemTextColor(isActive, isHovered),
+      child: SafeHoverWidget(
+        onHover: () {
+          if (mounted) {
+            setState(() => hoveredItem = route);
+          }
+        },
+        onExit: () {
+          if (mounted) {
+            setState(() => hoveredItem = null);
+          }
+        },
+        builder: (context, isHovered) {
+          return GestureDetector(
+            onTap: () => widget.onNavigate(route),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: _getItemBackgroundColor(isActive, isHovered),
+                borderRadius: BorderRadius.circular(12),
+                border: isActive ? Border.all(
+                  color: AppTheme.primaryColor.withOpacity(0.3),
+                  width: 1,
+                ) : null,
+              ),
+              child: Row(
+                children: [
+                  // Icono
+                  Icon(
+                    icon,
+                    size: 22,
+                    color: _getItemIconColor(isActive, isHovered),
+                  ),
+                  
+                  const SizedBox(width: 12),
+                  
+                  // Título
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                        color: _getItemTextColor(isActive, isHovered),
+                      ),
                     ),
                   ),
-                ),
-                
-                // Indicador de item activo
-                if (isActive)
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor,
-                      shape: BoxShape.circle,
+                  
+                  // Indicador de item activo
+                  if (isActive)
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor,
+                        shape: BoxShape.circle,
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }

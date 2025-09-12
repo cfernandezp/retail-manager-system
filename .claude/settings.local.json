@@ -41,7 +41,11 @@
       "Read(//c/Users/Programador2/Documents/CristianFernandez/**)",
       "Bash(./start.bat)",
       "Bash(python:*)",
-      "Bash(npx http-server:*)"
+      "Bash(npx http-server:*)",
+      "Bash(supabase init:*)",
+      "Bash(dart:*)",
+      "Bash(start chrome \"http://localhost:7000/#/products/create\")",
+      "Bash(timeout:*)"
     ],
     "deny": [],
     "ask": []

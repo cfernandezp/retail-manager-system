@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
+import '../common/safe_hover_widget.dart';
 
 /// Widget selector de colores múltiple para productos
 class ColorSelector extends StatefulWidget {
@@ -177,69 +178,67 @@ class _ColorSelectorState extends State<ColorSelector> {
     bool isSelected, {
     required VoidCallback onTap,
   }) {
-    return Material(
+    return SafeMaterialButton(
       elevation: isSelected ? 4 : 1,
       borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: isSelected 
-                  ? AppTheme.primaryTurquoise 
-                  : Colors.grey[300]!,
-              width: isSelected ? 2 : 1,
-            ),
+      backgroundColor: Colors.white,
+      onTap: onTap,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
             color: isSelected 
-                ? AppTheme.primaryTurquoise.withOpacity(0.1)
-                : Colors.white,
+                ? AppTheme.primaryTurquoise 
+                : Colors.grey[300]!,
+            width: isSelected ? 2 : 1,
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Color preview
-              Container(
-                width: 20,
-                height: 20,
-                decoration: BoxDecoration(
-                  color: colorOption.color,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: colorOption.color == Colors.white 
-                        ? Colors.grey[400]! 
-                        : Colors.transparent,
-                    width: 1,
-                  ),
+          color: isSelected 
+              ? AppTheme.primaryTurquoise.withOpacity(0.1)
+              : Colors.transparent,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Color preview
+            Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                color: colorOption.color,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: colorOption.color == Colors.white 
+                      ? Colors.grey[400]! 
+                      : Colors.transparent,
+                  width: 1,
                 ),
               ),
-              const SizedBox(width: 8),
-              
-              // Color name
-              Expanded(
-                child: Text(
-                  _capitalize(colorOption.name),
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                    color: isSelected 
-                        ? AppTheme.primaryTurquoise 
-                        : AppTheme.textPrimary,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(width: 8),
+            
+            // Color name
+            Expanded(
+              child: Text(
+                _capitalize(colorOption.name),
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  color: isSelected 
+                      ? AppTheme.primaryTurquoise 
+                      : AppTheme.textPrimary,
                 ),
+                overflow: TextOverflow.ellipsis,
               ),
-              
-              if (isSelected)
-                Icon(
-                  Icons.check_circle,
-                  size: 18,
-                  color: AppTheme.primaryTurquoise,
-                ),
-            ],
-          ),
+            ),
+            
+            if (isSelected)
+              Icon(
+                Icons.check_circle,
+                size: 18,
+                color: AppTheme.primaryTurquoise,
+              ),
+          ],
         ),
       ),
     );

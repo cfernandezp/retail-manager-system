@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
+import '../common/safe_hover_widget.dart';
 
 /// Widget KPI Card para métricas clave del dashboard
 /// 
@@ -69,48 +70,50 @@ class _KpiCardState extends State<KpiCard>
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => _onHover(true),
-      onExit: (_) => _onHover(false),
-      child: AnimatedBuilder(
-        animation: _scaleAnimation,
-        builder: (context, child) {
-          return Transform.scale(
-            scale: _scaleAnimation.value,
-            child: GestureDetector(
-              onTap: widget.onTap,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: _isHovered 
-                        ? widget.color.withOpacity(0.3) 
-                        : Colors.transparent,
-                    width: 2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(
-                        _isHovered ? 0.15 : 0.08
-                      ),
-                      blurRadius: _isHovered ? 20 : 10,
-                      offset: const Offset(0, 4),
+    return SafeHoverWidget(
+      onHover: () => _onHover(true),
+      onExit: () => _onHover(false),
+      builder: (context, isHovered) {
+        return AnimatedBuilder(
+          animation: _scaleAnimation,
+          builder: (context, child) {
+            return Transform.scale(
+              scale: _scaleAnimation.value,
+              child: GestureDetector(
+                onTap: widget.onTap,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isHovered 
+                          ? widget.color.withOpacity(0.3) 
+                          : Colors.transparent,
+                      width: 2,
                     ),
-                  ],
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: widget.isLoading
-                      ? _buildLoadingSkeleton()
-                      : _buildContent(context),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(
+                          isHovered ? 0.15 : 0.08
+                        ),
+                        blurRadius: isHovered ? 20 : 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: widget.isLoading
+                        ? _buildLoadingSkeleton()
+                        : _buildContent(context),
+                  ),
                 ),
               ),
-            ),
-          );
-        },
-      ),
+            );
+          },
+        );
+      },
     );
   }
 

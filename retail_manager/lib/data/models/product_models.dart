@@ -20,12 +20,12 @@ class Marca extends Equatable {
 
   factory Marca.fromJson(Map<String, dynamic> json) {
     return Marca(
-      id: json['id'],
-      nombre: json['nombre'],
+      id: json['id'] ?? '',
+      nombre: json['nombre'] ?? 'Sin nombre',
       descripcion: json['descripcion'],
       logoUrl: json['logo_url'],
-      activo: json['activo'] ?? json['activa'] ?? true, // Soporta ambos campos
-      createdAt: DateTime.parse(json['created_at']),
+      activo: json['activa'] ?? json['activo'] ?? true, // CORREGIDO: BD usa 'activa'
+      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : DateTime.now(),
     );
   }
 
@@ -61,11 +61,11 @@ class Categoria extends Equatable {
 
   factory Categoria.fromJson(Map<String, dynamic> json) {
     return Categoria(
-      id: json['id'],
-      nombre: json['nombre'],
+      id: json['id'] ?? '',
+      nombre: json['nombre'] ?? 'Sin nombre',
       descripcion: json['descripcion'],
-      activo: json['activo'] ?? json['activa'] ?? true, // Soporta ambos campos
-      createdAt: DateTime.parse(json['created_at']),
+      activo: json['activa'] ?? json['activo'] ?? true, // CORREGIDO: BD usa 'activa'
+      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : DateTime.now(),
     );
   }
 
@@ -100,11 +100,11 @@ class Material extends Equatable {
 
   factory Material.fromJson(Map<String, dynamic> json) {
     return Material(
-      id: json['id'],
-      nombre: json['nombre'],
+      id: json['id'] ?? '',
+      nombre: json['nombre'] ?? 'Sin nombre',
       descripcion: json['descripcion'],
-      activo: json['activo'] ?? true,
-      createdAt: DateTime.parse(json['created_at']),
+      activo: json['activo'] ?? json['activa'] ?? true, // ⚠️ CORREGIDO: Usar 'activa' como BD
+      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : DateTime.now(),
     );
   }
 
@@ -142,11 +142,11 @@ class ColorData extends Equatable {
 
   factory ColorData.fromJson(Map<String, dynamic> json) {
     return ColorData(
-      id: json['id'],
-      nombre: json['nombre'],
+      id: json['id'] ?? '',
+      nombre: json['nombre'] ?? 'Sin nombre',
       hexColor: json['hex_color'] ?? json['codigo_hex'] ?? '#000000',
       activo: json['activo'] ?? true,
-      createdAt: DateTime.parse(json['created_at']),
+      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : DateTime.now(),
     );
   }
 
@@ -181,11 +181,11 @@ class Talla extends Equatable {
 
   factory Talla.fromJson(Map<String, dynamic> json) {
     return Talla(
-      id: json['id'],
+      id: json['id'] ?? '',
       valor: json['valor'] ?? json['codigo'] ?? 'S/T',
-      tipo: json['tipo'] == 'RANGO' ? TipoTalla.rango : TipoTalla.unica,
+      tipo: json['tipo'] == 'RANGO' ? TipoTalla.rango : TipoTalla.unica, // ⚠️ INDIVIDUAL también se mapea a unica
       activo: json['activo'] ?? json['activa'] ?? true,
-      createdAt: DateTime.parse(json['created_at']),
+      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : DateTime.now(),
     );
   }
 
@@ -242,19 +242,19 @@ class ProductoMaster extends Equatable {
 
   factory ProductoMaster.fromJson(Map<String, dynamic> json) {
     return ProductoMaster(
-      id: json['id'],
-      nombre: json['nombre'],
-      marcaId: json['marca_id'],
-      categoriaId: json['categoria_id'],
-      tallaId: json['talla_id'],
-      materialId: json['material_id'], // Nuevo campo
-      precioSugerido: (json['precio_sugerido'] as num).toDouble(),
+      id: json['id'] ?? '',
+      nombre: json['nombre'] ?? 'Sin nombre',
+      marcaId: json['marca_id'] ?? '',
+      categoriaId: json['categoria_id'] ?? '',
+      tallaId: json['talla_id'] ?? '',
+      materialId: json['material_id'],
+      precioSugerido: json['precio_sugerido'] != null ? (json['precio_sugerido'] as num).toDouble() : 0.0,
       activo: json['activo'] ?? true,
-      createdAt: DateTime.parse(json['created_at']),
+      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : DateTime.now(),
       marca: json['marcas'] != null ? Marca.fromJson(json['marcas']) : null,
       categoria: json['categorias'] != null ? Categoria.fromJson(json['categorias']) : null,
       talla: json['tallas'] != null ? Talla.fromJson(json['tallas']) : null,
-      material: json['materiales'] != null ? Material.fromJson(json['materiales']) : null, // Nueva relación
+      material: json['materiales'] != null ? Material.fromJson(json['materiales']) : null,
       articulos: json['articulos'] != null
           ? (json['articulos'] as List).map((e) => Articulo.fromJson(e)).toList()
           : null,
@@ -405,8 +405,8 @@ class Tienda extends Equatable {
       id: json['id'],
       nombre: json['nombre'],
       direccion: json['direccion'],
-      adminTiendaId: json['admin_tienda_id'],
-      activo: json['activo'] ?? true,
+      adminTiendaId: json['admin_tienda_id'] ?? json['manager_id'], // CORREGIDO: Usar ambos nombres posibles
+      activo: json['activa'] ?? json['activo'] ?? true, // CORREGIDO: BD usa 'activa' principalmente
       createdAt: DateTime.parse(json['created_at']),
     );
   }

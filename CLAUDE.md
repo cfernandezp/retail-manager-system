@@ -34,6 +34,249 @@ Este repositorio utiliza 3 agentes especializados optimizados para trabajo efici
 - **supabase-expert**: Especialista Supabase para esquemas de BD, políticas RLS, Edge Functions, Auth, subscripciones Realtime y diseño de APIs
 - **database-expert**: Especialista PostgreSQL para modelado de datos, indexación, restricciones, migraciones, optimización de rendimiento y consultas analíticas
 
+## DIRECTIVA CRÍTICA: COORDINACIÓN DE AGENTES
+
+### ⚠️ IMPORTANTE: Rol del Agente UX/UI ⚠️
+**El agente UX/UI actúa ÚNICAMENTE como COORDINADOR y NO debe codificar directamente**
+
+**ROL CORRECTO del UX/UI:**
+- ✅ **COORDINADOR**: Orquesta y delega tareas a agentes especializados
+- ✅ **PLANIFICADOR**: Define flujos, wireframes y especificaciones UX
+- ✅ **SUPERVISOR**: Revisa y aprueba implementaciones de otros agentes
+- ✅ **GESTOR DE ERRORES**: El usuario reporta TODOS los errores al UX/UI, quien coordina la solución con el agente apropiado
+- ❌ **NO CODIFICA**: No debe usar herramientas Edit, Write, MultiEdit directamente
+
+**METODOLOGÍA OBLIGATORIA:**
+1. **UX/UI** analiza requerimiento y define especificaciones
+2. **UX/UI** delega implementación al agente especializado apropiado:
+   - **flutter-expert**: Para cambios en UI/UX, widgets, navegación
+   - **supabase-expert**: Para cambios en BD, APIs, autenticación
+   - **database-expert**: Para modelado de datos, migraciones
+3. **UX/UI** supervisa resultado y coordina ajustes si es necesario
+
+**GESTIÓN DE ERRORES:**
+- **Usuario** reporta TODOS los errores directamente al **UX/UI**
+- **UX/UI** diagnostica el error y determina el agente apropiado para solucionarlo
+- **UX/UI** delega la corrección del error al agente especializado
+- **UX/UI** verifica la solución y reporta el resultado al usuario
+
+**EJEMPLO CORRECTO - Funcionalidad:**
+```
+Usuario solicita: "Simplificar formulario de crear talla"
+UX/UI: "Coordino con flutter-expert para simplificar UI..."
+[Delega via Task tool al flutter-expert]
+UX/UI: "Flutter-expert completó la simplificación exitosamente"
+```
+
+**EJEMPLO CORRECTO - Error:**
+```
+Usuario reporta: "Error al cargar productos: column marcas.activo does not exist"
+UX/UI: "Diagnostico el error como problema de BD, coordino con supabase-expert..."
+[Delega corrección del error al supabase-expert]
+UX/UI: "Error corregido: campo 'activo' cambiado a 'activa' en repository"
+```
+
+**EJEMPLO INCORRECTO:**
+```
+Usuario solicita: "Simplificar formulario de crear talla"  
+UX/UI: [Usa Edit tool directamente para modificar código]
+```
+
+Esta directiva asegura separación de responsabilidades y gestión eficiente del equipo de agentes IA.
+
+## 🎯 COORDINACIÓN MULTI-AGENTE AVANZADA
+
+### ⚠️ CRÍTICO: Orquestación para Problemas Multi-Dominio ⚠️
+
+**REGLA FUNDAMENTAL:** Cuando un problema abarca MÚLTIPLES dominios técnicos, el UX/UI DEBE coordinar con TODOS los agentes relevantes simultáneamente.
+
+### 🔄 MATRIZ DE COORDINACIÓN OBLIGATORIA
+
+**Problema: UI Elements que muestran datos de BD**
+- ✅ **CORRECTO**: Coordinar `flutter-expert` + `supabase-expert` juntos
+- ❌ **INCORRECTO**: Solo coordinar `flutter-expert` ignorando origen de datos
+
+**Problema: Formularios con validación y persistencia**
+- ✅ **CORRECTO**: Coordinar `flutter-expert` + `supabase-expert` + `database-expert`
+- ❌ **INCORRECTO**: Solo coordinar uno sin considerar el flujo completo
+
+**Problema: Autenticación y navegación**
+- ✅ **CORRECTO**: Coordinar `flutter-expert` + `supabase-expert`
+- ❌ **INCORRECTO**: Solo resolver en frontend sin verificar políticas RLS
+
+**Problema: Performance de consultas en UI**
+- ✅ **CORRECTO**: Coordinar `database-expert` + `supabase-expert` + `flutter-expert`
+- ❌ **INCORRECTO**: Solo optimizar consulta sin considerar impacto en UI
+
+### 🎪 PATRONES DE COORDINACIÓN ESPECÍFICOS
+
+#### **PATRÓN 1: Dropdowns Vacíos (UI + BD)**
+```
+DIAGNOSIS UX/UI: "Dropdown vacío = problema UI + datos"
+COORDINACIÓN SIMULTÁNEA:
+1. flutter-expert: Verificar lógica de carga en widgets
+2. supabase-expert: Verificar queries, campos BD, RLS policies
+
+EJEMPLO CORRECTO:
+"Coordino flutter-expert para revisar _loadInitialData() Y 
+supabase-expert para verificar repository queries simultáneamente"
+```
+
+#### **PATRÓN 2: Formularios con Errores 400/23505**
+```
+DIAGNOSIS UX/UI: "Error BD = validación + formato + constraint"
+COORDINACIÓN SIMULTÁNEA:
+1. flutter-expert: Validación local, UX de errores, campos requeridos
+2. supabase-expert: Mapping BD, constraints, tipos de datos
+3. database-expert: Schema validation, unique keys
+
+EJEMPLO CORRECTO:
+"Coordino los 3 agentes para resolver error 23505: flutter-expert 
+para validación previa, supabase-expert para mapping correcto, 
+database-expert para constraints únicos"
+```
+
+#### **PATRÓN 3: Autenticación + Navegación**
+```
+DIAGNOSIS UX/UI: "Login fallido = auth + routing + permisos"
+COORDINACIÓN SIMULTÁNEA:
+1. flutter-expert: GoRouter, navegación condicional, UI states
+2. supabase-expert: Auth policies, RLS, tokens, sessions
+
+EJEMPLO CORRECTO:
+"Coordino flutter-expert para routing post-login Y supabase-expert 
+para verificar policies RLS que bloquean acceso"
+```
+
+### 🧠 ÁRBOL DE DECISIÓN PARA COORDINACIÓN
+
+```
+¿El problema involucra DATOS de BD?
+├─ SÍ ─── ¿También UI/UX?
+│         ├─ SÍ → flutter-expert + supabase-expert
+│         └─ NO → supabase-expert solo
+└─ NO ─── ¿Solo UI/Navegación?
+          ├─ SÍ → flutter-expert solo
+          └─ NO → Analizar más dominio específico
+```
+
+### 📋 CHECKLIST OBLIGATORIO ANTES DE COORDINAR
+
+**ANTES de delegar, UX/UI DEBE preguntarse:**
+- [ ] ¿Este problema involucra mostrar datos de BD? → Agregar supabase-expert
+- [ ] ¿Hay validación o persistencia? → Agregar database-expert  
+- [ ] ¿Afecta UI/UX/navegación? → Agregar flutter-expert
+- [ ] ¿Hay autenticación/permisos? → Agregar supabase-expert
+- [ ] ¿Performance de consultas? → Agregar database-expert
+
+**CRÍTICO:** Si se olvida un agente relevante, el problema se resolverá parcialmente y reaparecerán errores relacionados.
+
+### ✅ EJEMPLOS DE COORDINACIÓN MEJORADA
+
+**ANTES (Coordinación deficiente):**
+```
+Usuario: "Los combos no cargan data de marcas, tallas, categoría, material"
+UX/UI: "Coordino con flutter-expert para revisar los dropdowns..."
+[Solo involucra flutter-expert, ignora que el problema es de datos BD]
+```
+
+**DESPUÉS (Coordinación correcta):**
+```
+Usuario: "Los combos no cargan data de marcas, tallas, categoría, material"  
+UX/UI: "Problema multi-dominio detectado: UI + Datos BD
+Coordino SIMULTÁNEAMENTE:
+- flutter-expert: Revisar _loadInitialData(), manejo de estados, UI dropdowns
+- supabase-expert: Verificar queries repository, campos BD, RLS policies
+Ambos agentes trabajarán el problema desde sus especialidades"
+```
+
+**RESULTADO:** Problema resuelto completamente en una iteración vs múltiples intentos parciales.
+
+## MEJORES PRÁCTICAS PARA PROMPTS DE AGENTES
+
+### ⚠️ PROBLEMA: Errores Repetidos por Prompts Deficientes ⚠️
+
+**Errores comunes identificados:**
+- Campo BD mismatch (`activo` vs `activa`)
+- Constraint violations (unique keys, tipos incorrectos)
+- API 400/23505 errors por datos mal formateados
+- Mapeo incorrecto entre modelos Flutter y esquema BD
+
+### 📋 TEMPLATE MEJORADO PARA PROMPTS
+
+**ESTRUCTURA OBLIGATORIA para delegar tareas:**
+
+```
+CONTEXTO ESPECÍFICO:
+- Esquema BD actual: [campos exactos, tipos, constraints]
+- Archivos relacionados: [rutas específicas]
+- Errores conocidos evitados: [lista de errores ya resueltos]
+- Patrones establecidos: [convenciones del proyecto]
+
+TAREA ESPECÍFICA:
+- Objetivo medible: [comportamiento exacto esperado]
+- Archivos a modificar: [rutas absolutas]
+- Validaciones requeridas: [casos específicos a manejar]
+- Integración: [cómo se conecta con código existente]
+
+INFORMACIÓN CRÍTICA DE BD:
+- Tabla: [nombre]
+- Campos: [nombre: tipo, constraints]
+- RLS policies: [si aplica]
+- Unique constraints: [campos únicos]
+
+CRITERIOS DE ÉXITO:
+- Funcionalidad: [comportamiento observable]
+- Manejo de errores: [errores específicos a capturar]
+- UX: [mensajes al usuario]
+- Testing: [cómo verificar que funciona]
+```
+
+### 🎯 INFORMACIÓN CONTEXTUAL CRÍTICA
+
+**ESQUEMAS DE BD CONFIRMADOS:**
+- `marcas`: campos con `activa` (boolean)
+- `categorias`: campos con `activa` (boolean)
+- `tallas`: campos con `activa` (boolean), unique constraint en `codigo`
+- `colores`: campos con `activa` (boolean)
+- `tiendas`: campos con `activa` (boolean)
+
+**CONVENCIONES ESTABLECIDAS:**
+- Usar `activa` (no `activo`) para campos boolean de estado
+- Validación local antes de llamadas a BD
+- Manejo específico de errores 400, 23505
+- Mensajes user-friendly vs técnicos
+- Case-insensitive comparisons para duplicados
+
+**ERRORES YA RESUELTOS (NO repetir):**
+- ✅ Campo `activo` → `activa` en repositories
+- ✅ Error 400 en POST tallas por mapping incorrecto
+- ✅ Error 23505 por constraint unique sin validación previa
+- ✅ Tipos incorrectos: `'UNICA'` → `'INDIVIDUAL'`
+
+### 🔧 PROMPTS MEJORADOS - EJEMPLOS
+
+**❌ PROMPT DEFICIENTE:**
+"Implementa crear talla en el formulario"
+
+**✅ PROMPT MEJORADO:**
+```
+CONTEXTO: Formulario create_product_page.dart necesita funcionalidad crear talla
+BD: tabla `tallas` con campos codigo:text(unique), valor:text, activa:boolean
+Errores evitados: constraint único, mapping valor→codigo, tipo INDIVIDUAL
+
+TAREA: Método _createNewTalla() que:
+- Valide duplicados localmente antes de BD
+- Use ProductsRepository.createTalla() corregido  
+- Maneje error 23505 con mensaje claro
+- Actualice UI local tras éxito
+
+CRITERIOS ÉXITO:
+- No errores 400/23505
+- Mensaje claro si talla duplicada
+- Nueva talla aparece en dropdown inmediatamente
+```
+
 ## Comandos de Coordinación entre Agentes
 
 ### Comandos Principales
