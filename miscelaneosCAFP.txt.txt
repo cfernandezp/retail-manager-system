@@ -1,0 +1,2 @@
+Iniciar flutterflow
+flutter run -d chrome --web-port=8000 -- Debes estar en retail_manager

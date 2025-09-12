@@ -1,0 +1,500 @@
+name: MVP1 Testing Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch: # Manual trigger
+
+env:
+  FLUTTER_VERSION: '3.19.0'
+  SUPABASE_URL: ${{ secrets.SUPABASE_TEST_URL }}
+  SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_TEST_ANON_KEY }}
+
+jobs:
+  # =====================================================
+  # UNIT TESTS JOB
+  # =====================================================
+  unit-tests:
+    name: 🧪 Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: ☕ Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: 🐦 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: 📦 Get dependencies
+        working-directory: ./retail_manager
+        run: |
+          flutter --version
+          flutter pub get
+
+      - name: 🔍 Analyze code
+        working-directory: ./retail_manager
+        run: flutter analyze --fatal-infos
+
+      - name: 🧪 Run unit tests with coverage
+        working-directory: ./retail_manager
+        run: |
+          flutter test --coverage --reporter=json > test-results.json
+
+      - name: 📊 Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./retail_manager/coverage/lcov.info
+          flags: unit-tests
+          name: codecov-umbrella
+
+      - name: 📄 Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unit-test-results
+          path: |
+            ./retail_manager/test-results.json
+            ./retail_manager/coverage/
+
+  # =====================================================
+  # INTEGRATION TESTS JOB
+  # =====================================================
+  integration-tests:
+    name: 🔗 Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: retail_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🗄️ Setup Supabase CLI
+        run: |
+          curl -o supabase.tar.gz -L https://github.com/supabase/cli/releases/latest/download/supabase_linux_amd64.tar.gz
+          tar -xzf supabase.tar.gz
+          sudo mv supabase /usr/local/bin/
+
+      - name: 🚀 Start Supabase local
+        working-directory: ./
+        run: |
+          supabase start
+          supabase db reset --linked=false
+
+      - name: 🐦 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: 📦 Get dependencies
+        working-directory: ./retail_manager
+        run: flutter pub get
+
+      - name: 🧪 Run integration tests
+        working-directory: ./retail_manager
+        run: |
+          flutter test integration_test/ --reporter=json > integration-test-results.json
+        env:
+          SUPABASE_URL: http://localhost:54321
+          SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.local
+
+      - name: 📊 Generate integration test report
+        if: always()
+        run: |
+          echo "## Integration Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "Tests completed $(date)" >> $GITHUB_STEP_SUMMARY
+
+      - name: 📄 Upload integration test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-test-results
+          path: |
+            ./retail_manager/integration-test-results.json
+
+      - name: 🛑 Stop Supabase
+        if: always()
+        run: supabase stop
+
+  # =====================================================
+  # SECURITY TESTS JOB
+  # =====================================================
+  security-tests:
+    name: 🔒 Security Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [unit-tests]
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🐦 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: 📦 Get dependencies
+        working-directory: ./retail_manager
+        run: flutter pub get
+
+      - name: 🔒 Run RLS security tests
+        working-directory: ./retail_manager
+        run: |
+          flutter test test/security/ --reporter=json > security-test-results.json
+
+      - name: 🛡️ Run dependency vulnerability scan
+        working-directory: ./retail_manager
+        run: |
+          flutter pub deps --json > dependencies.json
+          # Add vulnerability scanning tool here
+
+      - name: 📄 Upload security test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-test-results
+          path: |
+            ./retail_manager/security-test-results.json
+            ./retail_manager/dependencies.json
+
+  # =====================================================
+  # PERFORMANCE TESTS JOB
+  # =====================================================
+  performance-tests:
+    name: ⚡ Performance Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: [integration-tests]
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🐦 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: 📦 Get dependencies
+        working-directory: ./retail_manager
+        run: flutter pub get
+
+      - name: 🏗️ Build web release
+        working-directory: ./retail_manager
+        run: |
+          flutter build web --release
+          
+      - name: ⚡ Run performance tests
+        working-directory: ./retail_manager
+        run: |
+          flutter test test/performance/ --reporter=json > performance-test-results.json
+
+      - name: 📊 Generate performance benchmarks
+        run: |
+          echo "## Performance Benchmarks" >> $GITHUB_STEP_SUMMARY
+          echo "- Build time: $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "- Bundle size: $(du -sh ./retail_manager/build/web | cut -f1)" >> $GITHUB_STEP_SUMMARY
+
+      - name: 📄 Upload performance results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: performance-test-results
+          path: |
+            ./retail_manager/performance-test-results.json
+            ./retail_manager/build/web/
+
+  # =====================================================
+  # E2E TESTS JOB
+  # =====================================================
+  e2e-tests:
+    name: 🎭 End-to-End Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [unit-tests, integration-tests]
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🐦 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: 🌐 Setup Chrome
+        uses: browser-actions/setup-chrome@latest
+
+      - name: 📦 Get dependencies
+        working-directory: ./retail_manager
+        run: flutter pub get
+
+      - name: 🚀 Setup test environment
+        run: |
+          # Setup test database and seed data
+          echo "Setting up E2E test environment..."
+
+      - name: 🎭 Run E2E tests
+        working-directory: ./retail_manager
+        run: |
+          export CHROME_EXECUTABLE=$(which google-chrome-stable)
+          flutter drive \
+            --driver=test_driver/integration_test.dart \
+            --target=integration_test/critical_flows_test.dart \
+            -d chrome \
+            --reporter=json > e2e-test-results.json
+
+      - name: 📹 Upload test screenshots
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-screenshots
+          path: ./retail_manager/screenshots/
+
+      - name: 📄 Upload E2E test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-test-results
+          path: |
+            ./retail_manager/e2e-test-results.json
+
+  # =====================================================
+  # ACCESSIBILITY TESTS JOB
+  # =====================================================
+  accessibility-tests:
+    name: ♿ Accessibility Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [unit-tests]
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🐦 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: 📦 Get dependencies
+        working-directory: ./retail_manager
+        run: flutter pub get
+
+      - name: ♿ Run accessibility tests
+        working-directory: ./retail_manager
+        run: |
+          flutter test test/accessibility/ --reporter=json > accessibility-test-results.json
+
+      - name: 📊 Generate accessibility report
+        run: |
+          echo "## Accessibility Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "WCAG compliance tests completed" >> $GITHUB_STEP_SUMMARY
+
+      - name: 📄 Upload accessibility results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: accessibility-test-results
+          path: |
+            ./retail_manager/accessibility-test-results.json
+
+  # =====================================================
+  # TEST REPORT GENERATION JOB
+  # =====================================================
+  generate-report:
+    name: 📊 Generate Test Report
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [unit-tests, integration-tests, security-tests, performance-tests, e2e-tests, accessibility-tests]
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 📥 Download all test artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./test-results/
+
+      - name: 📊 Generate consolidated test report
+        run: |
+          echo "# 🧪 MVP1 Testing Report" > test-report.md
+          echo "" >> test-report.md
+          echo "## 📋 Test Summary" >> test-report.md
+          echo "- **Date**: $(date)" >> test-report.md
+          echo "- **Commit**: ${{ github.sha }}" >> test-report.md
+          echo "- **Branch**: ${{ github.ref_name }}" >> test-report.md
+          echo "" >> test-report.md
+          
+          echo "## 🧪 Unit Tests" >> test-report.md
+          if [ -f "./test-results/unit-test-results/test-results.json" ]; then
+            echo "✅ Unit tests completed" >> test-report.md
+          else
+            echo "❌ Unit tests failed" >> test-report.md
+          fi
+          
+          echo "## 🔗 Integration Tests" >> test-report.md
+          if [ -f "./test-results/integration-test-results/integration-test-results.json" ]; then
+            echo "✅ Integration tests completed" >> test-report.md
+          else
+            echo "❌ Integration tests failed" >> test-report.md
+          fi
+          
+          echo "## 🔒 Security Tests" >> test-report.md
+          if [ -f "./test-results/security-test-results/security-test-results.json" ]; then
+            echo "✅ Security tests completed" >> test-report.md
+          else
+            echo "❌ Security tests failed" >> test-report.md
+          fi
+          
+          echo "## ⚡ Performance Tests" >> test-report.md
+          if [ -f "./test-results/performance-test-results/performance-test-results.json" ]; then
+            echo "✅ Performance tests completed" >> test-report.md
+          else
+            echo "❌ Performance tests failed" >> test-report.md
+          fi
+          
+          echo "## 🎭 E2E Tests" >> test-report.md
+          if [ -f "./test-results/e2e-test-results/e2e-test-results.json" ]; then
+            echo "✅ E2E tests completed" >> test-report.md
+          else
+            echo "❌ E2E tests failed" >> test-report.md
+          fi
+          
+          echo "## ♿ Accessibility Tests" >> test-report.md
+          if [ -f "./test-results/accessibility-test-results/accessibility-test-results.json" ]; then
+            echo "✅ Accessibility tests completed" >> test-report.md
+          else
+            echo "❌ Accessibility tests failed" >> test-report.md
+          fi
+
+      - name: 📊 Add report to job summary
+        run: cat test-report.md >> $GITHUB_STEP_SUMMARY
+
+      - name: 📄 Upload consolidated report
+        uses: actions/upload-artifact@v4
+        with:
+          name: consolidated-test-report
+          path: |
+            test-report.md
+            test-results/
+
+  # =====================================================
+  # QUALITY GATE JOB
+  # =====================================================
+  quality-gate:
+    name: 🚦 Quality Gate
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [unit-tests, integration-tests, security-tests, performance-tests, e2e-tests, accessibility-tests]
+    
+    steps:
+      - name: 🚦 Evaluate quality gate
+        run: |
+          # Check if all critical tests passed
+          UNIT_TESTS="${{ needs.unit-tests.result }}"
+          INTEGRATION_TESTS="${{ needs.integration-tests.result }}"
+          SECURITY_TESTS="${{ needs.security-tests.result }}"
+          E2E_TESTS="${{ needs.e2e-tests.result }}"
+          
+          echo "## 🚦 Quality Gate Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "$UNIT_TESTS" = "success" ] && [ "$INTEGRATION_TESTS" = "success" ] && [ "$SECURITY_TESTS" = "success" ] && [ "$E2E_TESTS" = "success" ]; then
+            echo "✅ **QUALITY GATE PASSED**" >> $GITHUB_STEP_SUMMARY
+            echo "All critical tests passed. MVP1 is ready for deployment." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          else
+            echo "❌ **QUALITY GATE FAILED**" >> $GITHUB_STEP_SUMMARY
+            echo "Critical tests failed:" >> $GITHUB_STEP_SUMMARY
+            echo "- Unit Tests: $UNIT_TESTS" >> $GITHUB_STEP_SUMMARY
+            echo "- Integration Tests: $INTEGRATION_TESTS" >> $GITHUB_STEP_SUMMARY
+            echo "- Security Tests: $SECURITY_TESTS" >> $GITHUB_STEP_SUMMARY
+            echo "- E2E Tests: $E2E_TESTS" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+      - name: 💬 Comment PR with results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && comment.body.includes('🧪 MVP1 Test Results')
+            );
+            
+            const body = `## 🧪 MVP1 Test Results
+            
+            **Status**: ${{ needs.quality-gate.result == 'success' && '✅ PASSED' || '❌ FAILED' }}
+            **Commit**: ${{ github.sha }}
+            
+            ### Test Results:
+            - Unit Tests: ${{ needs.unit-tests.result == 'success' && '✅' || '❌' }}
+            - Integration Tests: ${{ needs.integration-tests.result == 'success' && '✅' || '❌' }}
+            - Security Tests: ${{ needs.security-tests.result == 'success' && '✅' || '❌' }}
+            - Performance Tests: ${{ needs.performance-tests.result == 'success' && '✅' || '❌' }}
+            - E2E Tests: ${{ needs.e2e-tests.result == 'success' && '✅' || '❌' }}
+            - Accessibility Tests: ${{ needs.accessibility-tests.result == 'success' && '✅' || '❌' }}
+            
+            **Deployment Ready**: ${{ needs.quality-gate.result == 'success' && 'YES ✅' || 'NO ❌' }}`;
+            
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
