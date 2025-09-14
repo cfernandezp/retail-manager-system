@@ -45,7 +45,17 @@
       "Bash(supabase init:*)",
       "Bash(dart:*)",
       "Bash(start chrome \"http://localhost:7000/#/products/create\")",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(docker:*)",
+      "Bash(git --version)",
+      "Bash(powershell:*)",
+      "Bash(scoop bucket add:*)",
+      "Bash(npm install:*)",
+      "Bash(supabase:*)",
+      "Read(//c/development/**)",
+      "Bash(unzip:*)",
+      "Bash(scoop install:*)",
+      "Bash(export:*)"
     ],
     "deny": [],
     "ask": []
