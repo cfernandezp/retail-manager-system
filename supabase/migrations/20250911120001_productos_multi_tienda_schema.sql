@@ -154,15 +154,15 @@ CREATE TABLE IF NOT EXISTS public.movimientos_stock (
 -- ==============================================================================
 
 -- Índices para marcas
-CREATE INDEX IF NOT EXISTS idx_marcas_activa ON public.marcas(activa);
+CREATE INDEX IF NOT EXISTS idx_marcas_activo ON public.marcas(activo);
 CREATE INDEX IF NOT EXISTS idx_marcas_nombre ON public.marcas USING gin(to_tsvector('spanish', nombre));
 
 -- Índices para categorías
-CREATE INDEX IF NOT EXISTS idx_categorias_activa ON public.categorias(activa);
-CREATE INDEX IF NOT EXISTS idx_categorias_tipo ON public.categorias(tipo);
+CREATE INDEX IF NOT EXISTS idx_categorias_activo ON public.categorias(activo);
+CREATE INDEX IF NOT EXISTS idx_categorias_nombre ON public.categorias USING gin(to_tsvector('spanish', nombre));
 
 -- Índices para tallas
-CREATE INDEX IF NOT EXISTS idx_tallas_activa ON public.tallas(activa);
+CREATE INDEX IF NOT EXISTS idx_tallas_activo ON public.tallas(activo);
 CREATE INDEX IF NOT EXISTS idx_tallas_tipo ON public.tallas(tipo);
 CREATE INDEX IF NOT EXISTS idx_tallas_orden ON public.tallas(orden_display);
 
@@ -170,7 +170,7 @@ CREATE INDEX IF NOT EXISTS idx_tallas_orden ON public.tallas(orden_display);
 CREATE INDEX IF NOT EXISTS idx_colores_activo ON public.colores(activo);
 
 -- Índices para productos master
-CREATE INDEX IF NOT EXISTS idx_productos_master_activo ON public.productos_master(activo);
+CREATE INDEX IF NOT EXISTS idx_productos_master_estado ON public.productos_master(estado);
 CREATE INDEX IF NOT EXISTS idx_productos_master_marca ON public.productos_master(marca_id);
 CREATE INDEX IF NOT EXISTS idx_productos_master_categoria ON public.productos_master(categoria_id);
 CREATE INDEX IF NOT EXISTS idx_productos_master_talla ON public.productos_master(talla_id);
@@ -178,7 +178,7 @@ CREATE INDEX IF NOT EXISTS idx_productos_master_nombre ON public.productos_maste
 CREATE INDEX IF NOT EXISTS idx_productos_master_precio ON public.productos_master(precio_sugerido);
 
 -- Índices para artículos
-CREATE INDEX IF NOT EXISTS idx_articulos_activo ON public.articulos(activo);
+CREATE INDEX IF NOT EXISTS idx_articulos_estado ON public.articulos(estado);
 CREATE INDEX IF NOT EXISTS idx_articulos_producto_master ON public.articulos(producto_master_id);
 CREATE INDEX IF NOT EXISTS idx_articulos_color ON public.articulos(color_id);
 CREATE INDEX IF NOT EXISTS idx_articulos_sku ON public.articulos(sku);
@@ -192,49 +192,87 @@ CREATE INDEX IF NOT EXISTS idx_inventario_stock_bajo ON public.inventario_tienda
 CREATE INDEX IF NOT EXISTS idx_inventario_precio ON public.inventario_tienda(precio_venta);
 
 -- Índices para movimientos de stock
-CREATE INDEX IF NOT EXISTS idx_movimientos_tienda_fecha ON public.movimientos_stock(tienda_id, fecha_movimiento);
-CREATE INDEX IF NOT EXISTS idx_movimientos_articulo_fecha ON public.movimientos_stock(articulo_id, fecha_movimiento);
+CREATE INDEX IF NOT EXISTS idx_movimientos_tienda_fecha ON public.movimientos_stock(tienda_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_movimientos_articulo_fecha ON public.movimientos_stock(articulo_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_movimientos_tipo ON public.movimientos_stock(tipo_movimiento);
 CREATE INDEX IF NOT EXISTS idx_movimientos_usuario ON public.movimientos_stock(usuario_id);
 
 -- ==============================================================================
--- 7. TRIGGERS PARA UPDATED_AT
+-- 7. TRIGGERS PARA UPDATED_AT (idempotentes)
 -- ==============================================================================
 
-CREATE TRIGGER trigger_marcas_updated_at
-    BEFORE UPDATE ON public.marcas
-    FOR EACH ROW
-    EXECUTE FUNCTION public.actualizar_updated_at();
+DO $$
+BEGIN
+    -- Trigger para marcas
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger WHERE tgname = 'trigger_marcas_updated_at' AND tgrelid = 'public.marcas'::regclass
+    ) THEN
+        CREATE TRIGGER trigger_marcas_updated_at
+            BEFORE UPDATE ON public.marcas
+            FOR EACH ROW
+            EXECUTE FUNCTION public.actualizar_updated_at();
+    END IF;
 
-CREATE TRIGGER trigger_categorias_updated_at
-    BEFORE UPDATE ON public.categorias
-    FOR EACH ROW
-    EXECUTE FUNCTION public.actualizar_updated_at();
+    -- Trigger para categorias
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger WHERE tgname = 'trigger_categorias_updated_at' AND tgrelid = 'public.categorias'::regclass
+    ) THEN
+        CREATE TRIGGER trigger_categorias_updated_at
+            BEFORE UPDATE ON public.categorias
+            FOR EACH ROW
+            EXECUTE FUNCTION public.actualizar_updated_at();
+    END IF;
 
-CREATE TRIGGER trigger_tallas_updated_at
-    BEFORE UPDATE ON public.tallas
-    FOR EACH ROW
-    EXECUTE FUNCTION public.actualizar_updated_at();
+    -- Trigger para tallas
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger WHERE tgname = 'trigger_tallas_updated_at' AND tgrelid = 'public.tallas'::regclass
+    ) THEN
+        CREATE TRIGGER trigger_tallas_updated_at
+            BEFORE UPDATE ON public.tallas
+            FOR EACH ROW
+            EXECUTE FUNCTION public.actualizar_updated_at();
+    END IF;
 
-CREATE TRIGGER trigger_colores_updated_at
-    BEFORE UPDATE ON public.colores
-    FOR EACH ROW
-    EXECUTE FUNCTION public.actualizar_updated_at();
+    -- Trigger para colores
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger WHERE tgname = 'trigger_colores_updated_at' AND tgrelid = 'public.colores'::regclass
+    ) THEN
+        CREATE TRIGGER trigger_colores_updated_at
+            BEFORE UPDATE ON public.colores
+            FOR EACH ROW
+            EXECUTE FUNCTION public.actualizar_updated_at();
+    END IF;
 
-CREATE TRIGGER trigger_productos_master_updated_at
-    BEFORE UPDATE ON public.productos_master
-    FOR EACH ROW
-    EXECUTE FUNCTION public.actualizar_updated_at();
+    -- Trigger para productos_master
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger WHERE tgname = 'trigger_productos_master_updated_at' AND tgrelid = 'public.productos_master'::regclass
+    ) THEN
+        CREATE TRIGGER trigger_productos_master_updated_at
+            BEFORE UPDATE ON public.productos_master
+            FOR EACH ROW
+            EXECUTE FUNCTION public.actualizar_updated_at();
+    END IF;
 
-CREATE TRIGGER trigger_articulos_updated_at
-    BEFORE UPDATE ON public.articulos
-    FOR EACH ROW
-    EXECUTE FUNCTION public.actualizar_updated_at();
+    -- Trigger para articulos
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger WHERE tgname = 'trigger_articulos_updated_at' AND tgrelid = 'public.articulos'::regclass
+    ) THEN
+        CREATE TRIGGER trigger_articulos_updated_at
+            BEFORE UPDATE ON public.articulos
+            FOR EACH ROW
+            EXECUTE FUNCTION public.actualizar_updated_at();
+    END IF;
 
-CREATE TRIGGER trigger_inventario_tienda_updated_at
-    BEFORE UPDATE ON public.inventario_tienda
-    FOR EACH ROW
-    EXECUTE FUNCTION public.actualizar_updated_at();
+    -- Trigger para inventario_tienda
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger WHERE tgname = 'trigger_inventario_tienda_updated_at' AND tgrelid = 'public.inventario_tienda'::regclass
+    ) THEN
+        CREATE TRIGGER trigger_inventario_tienda_updated_at
+            BEFORE UPDATE ON public.inventario_tienda
+            FOR EACH ROW
+            EXECUTE FUNCTION public.actualizar_updated_at();
+    END IF;
+END $$;
 
 -- ==============================================================================
 -- 8. FUNCIÓN PARA GENERACIÓN AUTOMÁTICA DE SKUs
@@ -345,7 +383,7 @@ COMMENT ON TABLE public.articulos IS 'Artículos vendibles - Producto Master + C
 COMMENT ON TABLE public.inventario_tienda IS 'Stock y precios por artículo por tienda';
 COMMENT ON TABLE public.movimientos_stock IS 'Trazabilidad completa de movimientos de inventario';
 
-COMMENT ON COLUMN public.productos_master.codigo_base IS 'Base para generar SKUs automáticamente';
+-- COMMENT ON COLUMN public.productos_master.codigo_base IS 'Base para generar SKUs automáticamente'; -- Campo no existe
 COMMENT ON COLUMN public.articulos.sku IS 'Código único del artículo, generado automáticamente';
 COMMENT ON COLUMN public.inventario_tienda.stock_reservado IS 'Stock comprometido en ventas pendientes';
 COMMENT ON COLUMN public.movimientos_stock.cantidad IS 'Cantidad del movimiento (+ ingresos, - salidas)';

@@ -417,7 +417,7 @@ class Tienda extends Equatable {
       'nombre': nombre,
       'direccion': direccion,
       'admin_tienda_id': adminTiendaId,
-      'activo': activo,
+      'activa': activo, // CORREGIDO: BD usa 'activa'
     };
   }
 

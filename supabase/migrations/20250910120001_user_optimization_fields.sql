@@ -2,20 +2,25 @@
 -- Fecha: 2025-09-10
 -- Descripción: Agregar campos faltantes y optimizar estructura para retail
 
--- Crear tabla de tiendas (si no existe)
-CREATE TABLE IF NOT EXISTS public.tiendas (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    nombre VARCHAR(255) NOT NULL,
-    codigo VARCHAR(50) UNIQUE NOT NULL,
-    direccion TEXT,
-    telefono VARCHAR(20),
-    email VARCHAR(255),
-    manager_id UUID REFERENCES public.usuarios(id),
-    activa BOOLEAN DEFAULT TRUE,
-    configuracion JSONB DEFAULT '{}',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+-- Agregar campos faltantes a tabla tiendas existente
+DO $$
+BEGIN
+    -- Agregar manager_id si no existe (referencia a usuarios)
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tiendas' AND column_name = 'manager_id') THEN
+        ALTER TABLE public.tiendas ADD COLUMN manager_id UUID;
+    END IF;
+
+    -- Asegurar que existe la columna activa (usar activa en lugar de activo para consistencia)
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tiendas' AND column_name = 'activa') THEN
+        -- Si existe 'activo', renombrarlo a 'activa'
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tiendas' AND column_name = 'activo') THEN
+            ALTER TABLE public.tiendas RENAME COLUMN activo TO activa;
+        ELSE
+            -- Si no existe ninguno, crear 'activa'
+            ALTER TABLE public.tiendas ADD COLUMN activa BOOLEAN DEFAULT TRUE;
+        END IF;
+    END IF;
+END $$;
 
 -- Agregar campos faltantes a usuarios
 DO $$ 
@@ -61,14 +66,45 @@ CREATE INDEX IF NOT EXISTS idx_usuarios_pendientes_urgentes ON public.usuarios(c
 
 -- Índices para tiendas
 CREATE INDEX IF NOT EXISTS idx_tiendas_codigo ON public.tiendas(codigo);
-CREATE INDEX IF NOT EXISTS idx_tiendas_activa ON public.tiendas(activa);
-CREATE INDEX IF NOT EXISTS idx_tiendas_manager ON public.tiendas(manager_id);
+-- Verificar si las columnas existen antes de crear índices
+DO $$
+BEGIN
+    -- Índice para columna activa (después del rename)
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tiendas' AND column_name = 'activa') THEN
+        CREATE INDEX IF NOT EXISTS idx_tiendas_activa ON public.tiendas(activa);
+    END IF;
 
--- Trigger para updated_at en tiendas
-CREATE TRIGGER trigger_tiendas_updated_at
-    BEFORE UPDATE ON public.tiendas
-    FOR EACH ROW
-    EXECUTE FUNCTION public.actualizar_updated_at();
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tiendas' AND column_name = 'manager_id') THEN
+        CREATE INDEX IF NOT EXISTS idx_tiendas_manager ON public.tiendas(manager_id);
+    END IF;
+END $$;
+
+-- Trigger para updated_at en tiendas (verificación mejorada)
+DO $$
+BEGIN
+    -- Verificar si el trigger ya existe antes de crearlo
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger t
+        JOIN pg_class c ON t.tgrelid = c.oid
+        JOIN pg_namespace n ON c.relnamespace = n.oid
+        WHERE t.tgname = 'trigger_tiendas_updated_at'
+        AND c.relname = 'tiendas'
+        AND n.nspname = 'public'
+    ) THEN
+        -- Verificar que la función existe antes de crear el trigger
+        IF EXISTS (
+            SELECT 1 FROM pg_proc p
+            JOIN pg_namespace n ON p.pronamespace = n.oid
+            WHERE p.proname = 'actualizar_updated_at'
+            AND n.nspname = 'public'
+        ) THEN
+            CREATE TRIGGER trigger_tiendas_updated_at
+                BEFORE UPDATE ON public.tiendas
+                FOR EACH ROW
+                EXECUTE FUNCTION public.actualizar_updated_at();
+        END IF;
+    END IF;
+END $$;
 
 -- Comentarios
 COMMENT ON COLUMN public.usuarios.fecha_suspension IS 'Fecha en que se suspendió al usuario';
