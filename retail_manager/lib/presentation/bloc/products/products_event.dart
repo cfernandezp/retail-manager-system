@@ -164,3 +164,19 @@ class ImportProducts extends ProductsEvent {
   @override
   List<Object?> get props => [productsData];
 }
+
+/// Cargar datos iniciales para formularios (marcas, categorías, materiales, etc.)
+class LoadInitialProductData extends ProductsEvent {
+  const LoadInitialProductData();
+}
+
+/// Actualizar producto master específicamente
+class UpdateProductoMaster extends ProductsEvent {
+  final String productId;
+  final Map<String, dynamic> updateData;
+
+  const UpdateProductoMaster(this.productId, this.updateData);
+
+  @override
+  List<Object?> get props => [productId, updateData];
+}

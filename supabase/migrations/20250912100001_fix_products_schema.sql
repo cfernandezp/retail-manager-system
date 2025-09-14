@@ -19,11 +19,26 @@ CREATE TABLE IF NOT EXISTS public.materiales (
 -- Índice para materiales
 CREATE INDEX IF NOT EXISTS idx_materiales_activo ON public.materiales(activo);
 
--- Trigger para updated_at
-CREATE TRIGGER trigger_materiales_updated_at
-    BEFORE UPDATE ON public.materiales
-    FOR EACH ROW
-    EXECUTE FUNCTION public.actualizar_updated_at();
+-- Trigger para updated_at - COMENTADO PARA EVITAR DUPLICADOS
+-- La migración 20250914020001_fix_trigger_duplicates.sql se encarga de esto
+/*
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger t
+        JOIN pg_class c ON t.tgrelid = c.oid
+        JOIN pg_namespace n ON c.relnamespace = n.oid
+        WHERE t.tgname = 'trigger_materiales_updated_at'
+        AND c.relname = 'materiales'
+        AND n.nspname = 'public'
+    ) THEN
+        CREATE TRIGGER trigger_materiales_updated_at
+            BEFORE UPDATE ON public.materiales
+            FOR EACH ROW
+            EXECUTE FUNCTION public.actualizar_updated_at();
+    END IF;
+END $$;
+*/
 
 -- ==============================================================================
 -- 2. AGREGAR MATERIAL_ID A PRODUCTOS_MASTER

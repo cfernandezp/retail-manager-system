@@ -26,13 +26,14 @@ El sistema está organizado en estos dominios principales:
 
 ## Agentes Especializados
 
-Este repositorio utiliza 3 agentes especializados optimizados para trabajo eficiente:
+Este repositorio utiliza 5 agentes especializados optimizados para trabajo eficiente:
 
 ### Equipo de Desarrollo Principal
 - **ux-ui-expert**: Especialista en experiencia de usuario y diseño visual para interfaces retail, wireframes, flujos de usuario, accesibilidad y design systems
 - **flutter-expert**: Especialista Flutter/Dart para UI/UX multiplataforma, gestión de estado, navegación, diseño responsivo e integración con Supabase
 - **supabase-expert**: Especialista Supabase para esquemas de BD, políticas RLS, Edge Functions, Auth, subscripciones Realtime y diseño de APIs
 - **database-expert**: Especialista PostgreSQL para modelado de datos, indexación, restricciones, migraciones, optimización de rendimiento y consultas analíticas
+- **technical-documentator**: Especialista en documentación técnica automática, gestión de contexto compartido, alineación de agentes y optimización de tokens para el equipo de desarrollo
 
 ## DIRECTIVA CRÍTICA: COORDINACIÓN DE AGENTES
 
@@ -52,6 +53,7 @@ Este repositorio utiliza 3 agentes especializados optimizados para trabajo efici
    - **flutter-expert**: Para cambios en UI/UX, widgets, navegación
    - **supabase-expert**: Para cambios en BD, APIs, autenticación
    - **database-expert**: Para modelado de datos, migraciones
+   - **technical-documentator**: Para documentar funcionalidades y decisiones técnicas (activación automática en paralelo)
 3. **UX/UI** supervisa resultado y coordina ajustes si es necesario
 
 **GESTIÓN DE ERRORES:**
@@ -277,6 +279,94 @@ CRITERIOS ÉXITO:
 - Nueva talla aparece en dropdown inmediatamente
 ```
 
+## ⚠️ CRÍTICO: Rol del Agente Technical-Documentator ⚠️
+
+### 📋 RESPONSABILIDADES CORE
+
+**El agente technical-documentator actúa como GESTOR DE CONOCIMIENTO del proyecto**
+
+**ROL OBLIGATORIO:**
+- ✅ **DOCUMENTADOR AUTOMÁTICO**: Captura y sintetiza implementaciones mientras otros agentes desarrollan
+- ✅ **CONTEXT KEEPER**: Mantiene contexto técnico compartido y actualizado para alineación de agentes
+- ✅ **KNOWLEDGE SYNC**: Sincroniza conocimiento entre sesiones, evitando re-trabajo y pérdida de contexto
+- ✅ **ARCHITECTURE TRACKER**: Documenta patrones, decisiones técnicas y convenciones establecidas
+- ✅ **TOKEN OPTIMIZER**: Reduce tokens en prompts futuros mediante documentación contextual eficiente
+
+### 🔄 ACTIVACIÓN AUTOMÁTICA OBLIGATORIA
+
+**El technical-documentator se ejecuta EN PARALELO (no secuencial) cuando:**
+- Cualquier agente implementa funcionalidad nueva significativa
+- Se crean o modifican componentes, APIs, esquemas de BD
+- Se establecen patrones, convenciones o decisiones arquitectónicas
+- Se resuelven errores que requieren documentación para evitar repetición
+
+**FLUJO DE ACTIVACIÓN:**
+```
+UX/UI coordina: [flutter-expert + supabase-expert + technical-documentator]
+│
+├─ flutter-expert: Implementa UI/lógica
+├─ supabase-expert: Implementa backend/BD
+└─ technical-documentator: Documenta AMBAS implementaciones simultáneamente
+```
+
+### 📁 ESTRUCTURA DE DOCUMENTACIÓN TÉCNICA
+
+**Archivos gestionados automáticamente:**
+- `/docs/ARCHITECTURE.md` - Decisiones arquitectónicas y patrones establecidos
+- `/docs/API_REFERENCE.md` - Endpoints, queries y funciones documentadas
+- `/docs/DATABASE_SCHEMA.md` - Esquema BD con relaciones, constraints y RLS
+- `/docs/COMPONENT_LIBRARY.md` - Widgets Flutter reutilizables con ejemplos
+- `/docs/DEPLOYMENT_GUIDE.md` - Configuración ambiente Supabase/Flutter
+- `/docs/DEVELOPMENT_LOG.md` - Changelog técnico de implementaciones
+
+### 🎯 CRITERIOS DE DOCUMENTACIÓN
+
+**QUÉ documentar (obligatorio):**
+- ✅ Nuevos componentes/widgets Flutter con props y uso
+- ✅ APIs/endpoints Supabase con parámetros y responses
+- ✅ Esquemas BD: tablas, campos, constraints, relaciones
+- ✅ Patrones de arquitectura establecidos (BLoC, Repository, etc.)
+- ✅ Convenciones de naming y estructura de archivos
+- ✅ Errores resueltos y soluciones para evitar repetición
+- ✅ Configuraciones críticas de ambiente
+
+**QUÉ NO documentar:**
+- ❌ Implementación detallada línea por línea
+- ❌ Comentarios obvios o redundantes
+- ❌ Documentación duplicada que ya existe
+
+### 📊 TEMPLATE DE DOCUMENTACIÓN OPTIMIZADO
+
+**Para componentes Flutter:**
+```markdown
+## ComponentName
+**Ubicación**: `lib/presentation/widgets/component_name.dart`
+**Propósito**: [1-2 líneas específicas]
+**Props**: param1(type), param2(type)
+**Uso**: `ComponentName(prop1: value)`
+**Dependencias**: [BLoC/providers necesarios]
+```
+
+**Para APIs Supabase:**
+```markdown
+## endpoint_name
+**Método**: POST/GET
+**URL**: `/api/v1/endpoint`
+**Parámetros**: {param1: type, param2: type}
+**Response**: {field1: type, field2: type}
+**RLS**: [política aplicada si existe]
+**Errores comunes**: [400/23505 etc. si aplica]
+```
+
+**Para esquemas BD:**
+```markdown
+## tabla_name
+**Campos**: campo1(tipo, constraint), campo2(tipo, constraint)
+**Relaciones**: FK hacia tabla_x, referenciada por tabla_y
+**Índices**: [campos indexados]
+**RLS**: [políticas activas]
+```
+
 ## Comandos de Coordinación entre Agentes
 
 ### Comandos Principales
@@ -346,6 +436,26 @@ Suite completa de pruebas:
 2. database-expert: Tests de integridad y rendimiento de datos
 3. supabase-expert: Tests de APIs y funciones backend
 4. flutter-expert: Tests unitarios, widgets e integración
+5. technical-documentator: Documenta casos de prueba y cobertura
+
+### Comandos de Documentación
+
+#### `/documentar-auto`
+Activación automática del agente technical-documentator:
+**Uso**: Ejecutado automáticamente en paralelo cuando otros agentes implementan funcionalidad
+**Propósito**: Documentar implementaciones en tiempo real
+
+#### `/sync-knowledge`
+Sincronización de contexto técnico:
+1. technical-documentator: Actualiza documentación existente
+2. Genera resumen de cambios para alineación de agentes
+3. Optimiza prompts futuros con contexto actualizado
+
+#### `/review-architecture`
+Revisión de decisiones arquitectónicas:
+1. technical-documentator: Analiza patrones implementados
+2. Identifica inconsistencias o mejoras potenciales
+3. Actualiza ARCHITECTURE.md con decisiones validadas
 
 ## DIRECTIVAS CRÍTICAS DE DESARROLLO
 
@@ -508,3 +618,105 @@ else → MobileLayout()                     // Drawer + BottomNav
 - **Contexto compartido**: Los agentes conocen el dominio del proyecto
 - **Tareas específicas**: Cada agente tiene responsabilidades claras
 - **Comunicación en español**: Idioma nativo para mejor comprensión
+- **Documentación viva**: El technical-documentator mantiene contexto técnico actualizado
+
+### 📝 PROMPTS OPTIMIZADOS PARA TECHNICAL-DOCUMENTATOR
+
+#### Para Documentar Componentes Flutter
+```
+TAREA: Documentar [ComponentName] en COMPONENT_LIBRARY.md
+
+CONTEXTO ESPECÍFICO:
+- Ubicación: [ruta exacta del archivo]
+- Propósito: [funcionalidad específica del componente]
+- Props/Parámetros: [tipos y descripciones]
+- Dependencias: [BLoCs, providers necesarios]
+
+FORMATO REQUERIDO:
+## ComponentName
+**Ubicación**: `path/to/component.dart`
+**Propósito**: [1-2 líneas específicas]
+**Props**: param1(type), param2(type)
+**Uso**: `ComponentName(prop1: value)`
+**Dependencias**: [BLoC/providers necesarios]
+
+CRITERIOS DOCUMENTACIÓN:
+- Enfocarse en USO práctico, no implementación detallada
+- Incluir ejemplo de uso real
+- Documentar props obligatorios vs opcionales
+```
+
+#### Para Documentar APIs/Repositories
+```
+TAREA: Documentar [RepositoryName.methodName] en API_REFERENCE.md
+
+INFORMACIÓN TÉCNICA REQUERIDA:
+- Query SQL ejecutada (si aplica)
+- Parámetros de entrada con tipos
+- Response type/structure
+- Errores comunes (400, 23505, etc.)
+- RLS policies aplicadas
+
+FORMATO OBLIGATORIO:
+##### methodName()
+**Query**: `SELECT ... WHERE ...`
+**Response**: `Type<Model>`
+**Uso**: [Contexto de uso específico]
+**Errores comunes**: [lista de errores y causas]
+
+NO DOCUMENTAR: Implementación línea por línea
+SÍ DOCUMENTAR: Comportamiento, parámetros, uso práctico
+```
+
+#### Para Documentar Esquemas BD
+```
+TAREA: Documentar tabla [tabla_name] en DATABASE_SCHEMA.md
+
+INFORMACIÓN CRÍTICA:
+- Campos con tipos exactos y constraints
+- Relaciones FK entrantes y salientes
+- Índices configurados
+- RLS policies activas
+- Errores comunes conocidos (23505, etc.)
+
+ESTRUCTURA OBLIGATORIA:
+### tabla_name
+**Propósito**: [funcionalidad de la tabla]
+```sql
+tabla_name (
+  campo1: tipo constraint,
+  campo2: tipo constraint
+)
+```
+**Relaciones**: FK hacia X, referenciada por Y
+**RLS**: [políticas activas]
+**Errores comunes**: [23505 en campo_unique, etc.]
+
+ENFOQUE: Información práctica para desarrollo, no documentación exhaustiva
+```
+
+#### Activación Automática en Coordinación
+```
+FLUJO COORDINACIÓN CON DOCUMENTACIÓN:
+1. UX/UI recibe requerimiento del usuario
+2. UX/UI coordina agentes técnicos: flutter-expert + supabase-expert + technical-documentator (PARALELO)
+3. Agentes técnicos implementan funcionalidad
+4. Technical-documentator documenta implementación SIMULTÁNEAMENTE
+5. UX/UI reporta completado + documentación actualizada
+
+PROMPT AUTOMÁTICO PARA TECHNICAL-DOCUMENTATOR:
+"DOCUMENTAR implementación realizada por [agente]:
+
+IMPLEMENTACIÓN REALIZADA:
+- [Resumen de lo implementado por flutter-expert/supabase-expert]
+- [Archivos modificados/creados]
+- [Decisiones técnicas tomadas]
+
+DOCUMENTAR EN:
+- /docs/COMPONENT_LIBRARY.md (si hay componentes Flutter)
+- /docs/API_REFERENCE.md (si hay métodos/repositories)
+- /docs/DATABASE_SCHEMA.md (si hay cambios BD)
+- /docs/DEVELOPMENT_LOG.md (changelog técnico)
+
+ENFOQUE: Actualizar documentación existente, no crear nueva desde cero"
+```

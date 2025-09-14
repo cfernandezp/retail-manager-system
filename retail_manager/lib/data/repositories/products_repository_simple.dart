@@ -8,12 +8,12 @@ class ProductsRepository {
   Future<List<Marca>> getMarcas() async {
     try {
       print('🔄 [REPO] Ejecutando query marcas...');
-      print('   Query: SELECT * FROM marcas WHERE activa = true ORDER BY nombre');
-      
+      print('   Query: SELECT * FROM marcas WHERE activo = true ORDER BY nombre');
+
       final response = await _client
           .from('marcas')
           .select('*')
-          .eq('activa', true) // CORREGIDO: BD usa 'activa'
+          .eq('activo', true) // RLS deshabilitado - campo confirmado
           .order('nombre');
       
       print('✅ [REPO] Respuesta raw marcas: $response');
@@ -50,11 +50,11 @@ class ProductsRepository {
     try {
       print('🔄 [REPO] Ejecutando query categorias...');
       print('   Query: SELECT * FROM categorias WHERE activa = true ORDER BY nombre');
-      
+
       final response = await _client
           .from('categorias')
           .select('*')
-          .eq('activa', true) // CORREGIDO: BD usa 'activa'
+          .eq('activo', true) // RLS deshabilitado - campo confirmado
           .order('nombre');
       
       print('✅ [REPO] Respuesta raw categorias: $response');
@@ -132,13 +132,13 @@ class ProductsRepository {
   Future<List<Talla>> getTallas() async {
     try {
       print('🔄 [REPO] Ejecutando query tallas...');
-      print('   Query: SELECT * FROM tallas WHERE activo = true ORDER BY codigo');
-      
+      print('   Query: SELECT * FROM tallas WHERE activa = true ORDER BY codigo');
+
       final response = await _client
           .from('tallas')
           .select('*')
-          .eq('activo', true)
-          .order('codigo'); // CORREGIDO: usar 'codigo' como campo de ordenamiento
+          .eq('activo', true) // RLS deshabilitado - campo confirmado
+          .order('codigo');
       
       print('✅ [REPO] Respuesta raw tallas: $response');
       print('   Tipo: ${response.runtimeType}, Longitud: ${response.length}');
@@ -160,10 +160,10 @@ class ProductsRepository {
       // Corregir mapping de campos para que coincida con el esquema de BD actual
       final correctedData = <String, dynamic>{
         'codigo': tallaData['valor'] ?? tallaData['codigo'],
-        'nombre': tallaData['nombre'],
-        // Convertir 'UNICA' a 'INDIVIDUAL' que es el valor esperado por el constraint
-        'tipo': (tallaData['tipo'] == 'UNICA') ? 'INDIVIDUAL' : tallaData['tipo'],
-        'activo': tallaData['activa'] ?? tallaData['activo'] ?? true, // BD usa 'activo'
+        // Eliminamos 'nombre' porque NO EXISTE en tabla tallas según esquema BD
+        // Usar directamente el tipo recibido (enum tipo_talla: 'RANGO' | 'UNICA')
+        'tipo': tallaData['tipo'],
+        'activa': tallaData['activa'] ?? tallaData['activo'] ?? true, // BD usa 'activa'
       };
       
       print('🔄 [Repository] Creando talla con datos: $correctedData');
@@ -186,12 +186,12 @@ class ProductsRepository {
   Future<List<ColorData>> getColores() async {
     try {
       print('🔄 [REPO] Ejecutando query colores...');
-      print('   Query: SELECT * FROM colores WHERE activo = true ORDER BY nombre');
-      
+      print('   Query: SELECT * FROM colores WHERE activa = true ORDER BY nombre');
+
       final response = await _client
           .from('colores')
           .select('*')
-          .eq('activo', true)
+          .eq('activa', true)
           .order('nombre');
       
       print('✅ [REPO] Respuesta raw colores: $response');
@@ -228,11 +228,11 @@ class ProductsRepository {
     try {
       print('🔄 [REPO] Ejecutando query tiendas...');
       print('   Query: SELECT * FROM tiendas WHERE activa = true ORDER BY nombre');
-      
+
       final response = await _client
           .from('tiendas')
           .select('*')
-          .eq('activa', true) // CORREGIDO: BD usa 'activa'
+          .eq('activa', true) // CORREGIDO: BD real usa 'activa'
           .order('nombre');
       
       print('✅ [REPO] Respuesta raw tiendas: $response');
@@ -268,16 +268,12 @@ class ProductsRepository {
   Future<List<ProductoMaster>> getProductos({ProductFilters? filters}) async {
     try {
       print('🔄 [REPO] Ejecutando query productos_master con joins...');
-      print('   Base Query: SELECT *, marcas(id, nombre), categorias(id, nombre), tallas(id, codigo, nombre) FROM productos_master');
+      print('   Base Query: SELECT *, marcas(id, nombre), categorias(id, nombre), tallas(id, codigo) FROM productos_master WHERE estado = ACTIVO');
       
       var query = _client
           .from('productos_master')
-          .select('''
-            *,
-            marcas(id, nombre),
-            categorias(id, nombre),
-            tallas(id, codigo, nombre)
-          ''');
+          .select('*, marcas(id, nombre), categorias(id, nombre), tallas(id, codigo)')
+          .eq('estado', 'ACTIVO'); // Solo productos activos
 
       // Aplicar filtros si se proporcionan
       if (filters != null) {
@@ -348,16 +344,12 @@ class ProductsRepository {
   Future<ProductoMaster?> getProductoMasterById(String id) async {
     try {
       print('🔄 [REPO] Ejecutando query producto por ID: $id');
-      print('   Query: SELECT *, marcas(id, nombre), categorias(id, nombre), tallas(id, codigo, nombre) FROM productos_master WHERE id = $id');
+      print('   Query: SELECT *, marcas(id, nombre), categorias(id, nombre), tallas(id, codigo) FROM productos_master WHERE id = $id');
       
       final response = await _client
           .from('productos_master')
-          .select('''
-            *,
-            marcas(id, nombre),
-            categorias(id, nombre),
-            tallas(id, codigo, nombre)
-          ''')
+          .select('*, marcas(id, nombre), categorias(id, nombre), tallas(id, codigo)')
+          .eq('estado', 'ACTIVO') // Solo productos activos
           .eq('id', id)
           .maybeSingle();
 
@@ -511,7 +503,7 @@ class ProductsRepository {
     try {
       await _client
           .from('productos_master')
-          .update({'activo': false})
+          .update({'estado': 'INACTIVO'})
           .eq('id', id);
     } catch (e) {
       throw Exception('Error al eliminar producto: $e');
@@ -523,7 +515,7 @@ class ProductsRepository {
     return _client
         .from('productos_master')
         .stream(primaryKey: ['id'])
-        .eq('activo', true)
+        .eq('estado', 'ACTIVO')
         .map((data) => data.map((json) => ProductoMaster.fromJson(json)).toList());
   }
 

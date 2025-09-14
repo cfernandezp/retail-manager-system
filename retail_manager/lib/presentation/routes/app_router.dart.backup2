@@ -117,9 +117,7 @@ class AppRouter {
               GoRoute(
                 path: 'edit',
                 name: 'edit_product',
-                builder: (context, state) {
-                  final productId = state.pathParameters['productId']!;
-                  return EditProductPage(productId: productId);
+                builder: (context, state) {                  final productId = state.pathParameters['productId']!;                  return EditProductPage(productId: productId);                },
                 },
               ),
             ],

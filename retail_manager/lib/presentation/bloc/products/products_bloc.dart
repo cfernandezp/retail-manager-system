@@ -25,6 +25,8 @@ class ProductsBloc extends Bloc<ProductsEvent, ProductsState> {
     on<SubscribeToChanges>(_onSubscribeToChanges);
     on<UnsubscribeFromChanges>(_onUnsubscribeFromChanges);
     on<ProductRealTimeUpdate>(_onProductRealTimeUpdate);
+    on<LoadInitialProductData>(_onLoadInitialProductData);
+    on<UpdateProductoMaster>(_onUpdateProductoMaster);
   }
 
   Future<void> _onLoadProducts(
@@ -347,7 +349,7 @@ class ProductsBloc extends Bloc<ProductsEvent, ProductsState> {
         add(ProductRealTimeUpdate({}, 'PRODUCTS_UPDATED'));
       });
       
-      _repository.subscribeToInventoryChanges('default').listen((inventarios) {
+      _repository.subscribeToInventoryChanges('11111111-1111-1111-1111-111111111111').listen((inventarios) {
         add(ProductRealTimeUpdate({}, 'INVENTORY_UPDATED'));
       });
     } catch (e) {
@@ -395,9 +397,50 @@ class ProductsBloc extends Bloc<ProductsEvent, ProductsState> {
     }
   }
 
+  /// Handler para cargar datos iniciales para formularios
+  Future<void> _onLoadInitialProductData(
+    LoadInitialProductData event,
+    Emitter<ProductsState> emit,
+  ) async {
+    try {
+      final marcas = await _repository.getMarcas();
+      final categorias = await _repository.getCategorias();
+      final materiales = await _repository.getMateriales();
+      final tallas = await _repository.getTallas();
+      final colores = await _repository.getColores();
+
+      emit(InitialProductDataLoaded(
+        marcas: marcas,
+        categorias: categorias,
+        materiales: materiales,
+        tallas: tallas,
+        colores: colores,
+      ));
+    } catch (e) {
+      emit(ProductsError("Error al cargar datos iniciales: $e"));
+    }
+  }
+
+  /// Handler para actualizar producto master específicamente
+  Future<void> _onUpdateProductoMaster(
+    UpdateProductoMaster event,
+    Emitter<ProductsState> emit,
+  ) async {
+    emit(const ProductsLoading());
+
+    try {
+      final updatedProduct = await _repository.updateProductoMaster(
+        event.productId,
+        event.updateData,
+      );
+      emit(ProductUpdated(updatedProduct));
+    } catch (e) {
+      emit(ProductsError("Error al actualizar producto: $e"));
+    }
+  }
+
   @override
   Future<void> close() {
-    // Simplificar por ahora
     return super.close();
   }
 }

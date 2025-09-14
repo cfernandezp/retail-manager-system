@@ -19,11 +19,17 @@ CREATE TABLE IF NOT EXISTS public.materiales (
 -- Índice para materiales
 CREATE INDEX IF NOT EXISTS idx_materiales_activo ON public.materiales(activo);
 
--- Trigger para updated_at
-CREATE TRIGGER trigger_materiales_updated_at
-    BEFORE UPDATE ON public.materiales
-    FOR EACH ROW
-    EXECUTE FUNCTION public.actualizar_updated_at();
+-- Trigger para updated_at (crear solo si no existe)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.triggers
+                   WHERE trigger_name = 'trigger_materiales_updated_at') THEN
+        CREATE TRIGGER trigger_materiales_updated_at
+            BEFORE UPDATE ON public.materiales
+            FOR EACH ROW
+            EXECUTE FUNCTION public.actualizar_updated_at();
+    END IF;
+END $$;
 
 -- ==============================================================================
 -- 2. AGREGAR MATERIAL_ID A PRODUCTOS_MASTER

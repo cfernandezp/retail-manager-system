@@ -499,9 +499,9 @@ class _CreateProductPageState extends State<CreateProductPage>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
-      body: _isLoading 
+      body: _isLoading
         ? const Center(child: CircularProgressIndicator())
-        : _hasDebugData()
+        : _hasMinimalData()
         ? Column(
         children: [
           // Header with progress
@@ -635,14 +635,12 @@ class _CreateProductPageState extends State<CreateProductPage>
     );
   }
   
-  /// Verifica si hay datos suficientes para mostrar la UI normal
-  bool _hasDebugData() {
-    // Solo mostrar UI normal si TODAS las listas tienen datos
-    return _marcas.isNotEmpty && 
-           _categorias.isNotEmpty && 
-           _tallas.isNotEmpty && 
-           _materiales.isNotEmpty && 
-           _tiendas.isNotEmpty;
+  /// Verifica si hay datos mínimos para mostrar la UI normal
+  /// CAMBIO: Permitir UI normal incluso con listas vacías, ya que se puede crear inline
+  bool _hasMinimalData() {
+    // Solo verificar que no haya errores críticos de conexión
+    // Las listas vacías se manejan gracefully con opciones de creación inline
+    return true; // Siempre mostrar UI normal, manejar listas vacías gracefully
   }
 
   Widget _buildHeader() {
@@ -810,7 +808,7 @@ class _CreateProductPageState extends State<CreateProductPage>
     if (_marcas.isEmpty) {
       print('⚠️ [MarcaSelector] ALERTA: Lista de marcas está vacía en build()');
     }
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -824,10 +822,81 @@ class _CreateProductPageState extends State<CreateProductPage>
         ),
         const SizedBox(height: 8),
         if (_showNewMarcaField) ...[
+          // Mostrar marcas existentes como referencia
+          if (_marcas.isNotEmpty) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryTurquoise.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.primaryTurquoise.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Marcas existentes:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: _marcas.take(8).map((marca) => Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryTurquoise.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        marca.nombre,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    )).toList(),
+                  ),
+                ],
+              ),
+            ),
+          ],
           CorporateFormField(
             controller: _newMarcaController,
             label: 'Nueva Marca',
-            hintText: 'Nombre de la marca',
+            hintText: _marcas.isEmpty
+              ? 'Ej: Nike, Adidas, Puma, Reebok'
+              : 'Ingresa una marca que no esté en la lista superior',
+            validator: (value) {
+              if (value?.isEmpty ?? true) {
+                return 'El nombre de la marca es requerido';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              ElevatedButton(
+                onPressed: _createNewMarca,
+                child: const Text('Crear Marca'),
+              ),
+              const SizedBox(width: 8),
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _showNewMarcaField = false;
+                    _newMarcaController.clear();
+                  });
+                },
+                child: const Text('Cancelar'),
+              ),
+            ],
           ),
         ] else ...[
           DropdownButtonFormField<String>(
@@ -887,10 +956,81 @@ class _CreateProductPageState extends State<CreateProductPage>
         ),
         const SizedBox(height: 8),
         if (_showNewCategoriaField) ...[
+          // Mostrar categorías existentes como referencia
+          if (_categorias.isNotEmpty) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryTurquoise.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.primaryTurquoise.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Categorías existentes:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: _categorias.take(8).map((categoria) => Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryTurquoise.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        categoria.nombre,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    )).toList(),
+                  ),
+                ],
+              ),
+            ),
+          ],
           CorporateFormField(
             controller: _newCategoriaController,
             label: 'Nueva Categoría',
-            hintText: 'Nombre de la categoría',
+            hintText: _categorias.isEmpty
+              ? 'Ej: Medias, Deportivas, Casuales, Formales'
+              : 'Ingresa una categoría que no esté en la lista superior',
+            validator: (value) {
+              if (value?.isEmpty ?? true) {
+                return 'El nombre de la categoría es requerido';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              ElevatedButton(
+                onPressed: _createNewCategoria,
+                child: const Text('Crear Categoría'),
+              ),
+              const SizedBox(width: 8),
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _showNewCategoriaField = false;
+                    _newCategoriaController.clear();
+                  });
+                },
+                child: const Text('Cancelar'),
+              ),
+            ],
           ),
         ] else ...[
           DropdownButtonFormField<String>(
@@ -1709,6 +1849,194 @@ class _CreateProductPageState extends State<CreateProductPage>
     final colorCode = color.substring(0, color.length > 3 ? 3 : color.length).toUpperCase();
     
     return '$marcaCode-$categoriaCode-$colorCode-001';
+  }
+
+  /// Crea una nueva categoría usando ProductsRepository
+  void _createNewCategoria() async {
+    // Validar campo requerido
+    if (_newCategoriaController.text.trim().isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('El campo categoría es requerido'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+      return;
+    }
+
+    final categoriaValue = _newCategoriaController.text.trim();
+
+    // 1. VALIDACIÓN PREVIA: Verificar si ya existe una categoría con ese nombre
+    final categoriaExistente = _categorias.where((categoria) =>
+      categoria.nombre.toLowerCase() == categoriaValue.toLowerCase()).firstOrNull;
+
+    if (categoriaExistente != null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('La categoría "$categoriaValue" ya existe'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      // Preparar datos para crear la categoría
+      final categoriaData = {
+        'nombre': categoriaValue,
+        'descripcion': 'Categoría creada desde formulario de producto',
+        'prefijo_sku': categoriaValue.substring(0, categoriaValue.length > 3 ? 3 : categoriaValue.length).toUpperCase(),
+        'activo': true,
+      };
+
+      // Crear la categoría usando el repositorio
+      final nuevaCategoria = await _productsRepository.createCategoria(categoriaData);
+
+      // Agregar la nueva categoría a la lista local
+      setState(() {
+        _categorias.add(nuevaCategoria);
+        _selectedCategoriaId = nuevaCategoria.id; // Seleccionar automáticamente
+        _showNewCategoriaField = false; // Volver al dropdown
+      });
+
+      // Limpiar formulario
+      _newCategoriaController.clear();
+
+      // Mostrar mensaje de éxito
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Categoría "$categoriaValue" creada exitosamente'),
+            backgroundColor: AppTheme.primaryTurquoise,
+          ),
+        );
+      }
+
+    } catch (e) {
+      // 2. MANEJO MEJORADO DE ERRORES: Detectar error específico de constraint de unicidad
+      String mensajeError = 'Error al crear categoría: ${e.toString()}';
+
+      if (e.toString().contains('duplicate key') && e.toString().contains('categorias_nombre_key')) {
+        mensajeError = 'La categoría ya existe. Intenta con otro nombre.';
+      } else if (e.toString().contains('23505')) {
+        // Código PostgreSQL para violación de constraint de unicidad
+        mensajeError = 'La categoría ya existe. Intenta con otro nombre.';
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(mensajeError),
+            backgroundColor: AppTheme.errorColor,
+            duration: const Duration(seconds: 4), // Más tiempo para leer el mensaje específico
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  /// Crea una nueva marca usando ProductsRepository
+  void _createNewMarca() async {
+    // Validar campo requerido
+    if (_newMarcaController.text.trim().isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('El campo marca es requerido'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+      return;
+    }
+
+    final marcaValue = _newMarcaController.text.trim();
+
+    // 1. VALIDACIÓN PREVIA: Verificar si ya existe una marca con ese nombre
+    final marcaExistente = _marcas.where((marca) =>
+      marca.nombre.toLowerCase() == marcaValue.toLowerCase()).firstOrNull;
+
+    if (marcaExistente != null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('La marca "$marcaValue" ya existe'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      // Preparar datos para crear la marca
+      final marcaData = {
+        'nombre': marcaValue,
+        'descripcion': 'Marca creada desde formulario de producto',
+        'prefijo_sku': marcaValue.substring(0, marcaValue.length > 3 ? 3 : marcaValue.length).toUpperCase(),
+        'activo': true,
+      };
+
+      // Crear la marca usando el repositorio
+      final nuevaMarca = await _productsRepository.createMarca(marcaData);
+
+      // Agregar la nueva marca a la lista local
+      setState(() {
+        _marcas.add(nuevaMarca);
+        _selectedMarcaId = nuevaMarca.id; // Seleccionar automáticamente
+        _showNewMarcaField = false; // Volver al dropdown
+      });
+
+      // Limpiar formulario
+      _newMarcaController.clear();
+
+      // Mostrar mensaje de éxito
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Marca "$marcaValue" creada exitosamente'),
+            backgroundColor: AppTheme.primaryTurquoise,
+          ),
+        );
+      }
+
+    } catch (e) {
+      // 2. MANEJO MEJORADO DE ERRORES: Detectar error específico de constraint de unicidad
+      String mensajeError = 'Error al crear marca: ${e.toString()}';
+
+      if (e.toString().contains('duplicate key') && e.toString().contains('marcas_nombre_key')) {
+        mensajeError = 'La marca ya existe. Intenta con otro nombre.';
+      } else if (e.toString().contains('23505')) {
+        // Código PostgreSQL para violación de constraint de unicidad
+        mensajeError = 'La marca ya existe. Intenta con otro nombre.';
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(mensajeError),
+            backgroundColor: AppTheme.errorColor,
+            duration: const Duration(seconds: 4), // Más tiempo para leer el mensaje específico
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   /// Crea una nueva talla usando ProductsRepository

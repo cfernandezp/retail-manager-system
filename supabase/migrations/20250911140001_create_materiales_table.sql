@@ -74,11 +74,26 @@ CREATE INDEX IF NOT EXISTS idx_materiales_codigo ON public.materiales(codigo_abr
 -- Índice para nueva relación
 CREATE INDEX IF NOT EXISTS idx_productos_master_material ON public.productos_master(material_id);
 
--- Trigger para updated_at
-CREATE TRIGGER trigger_materiales_updated_at
-    BEFORE UPDATE ON public.materiales
-    FOR EACH ROW
-    EXECUTE FUNCTION public.actualizar_updated_at();
+-- Trigger para updated_at - COMENTADO PARA EVITAR DUPLICADOS
+-- La migración 20250914020001_fix_trigger_duplicates.sql se encarga de esto
+/*
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger t
+        JOIN pg_class c ON t.tgrelid = c.oid
+        JOIN pg_namespace n ON c.relnamespace = n.oid
+        WHERE t.tgname = 'trigger_materiales_updated_at'
+        AND c.relname = 'materiales'
+        AND n.nspname = 'public'
+    ) THEN
+        CREATE TRIGGER trigger_materiales_updated_at
+            BEFORE UPDATE ON public.materiales
+            FOR EACH ROW
+            EXECUTE FUNCTION public.actualizar_updated_at();
+    END IF;
+END $$;
+*/
 
 -- ==============================================================================
 -- 6. DATOS INICIALES ADICIONALES

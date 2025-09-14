@@ -24,7 +24,7 @@ class Marca extends Equatable {
       nombre: json['nombre'] ?? 'Sin nombre',
       descripcion: json['descripcion'],
       logoUrl: json['logo_url'],
-      activo: json['activa'] ?? json['activo'] ?? true, // CORREGIDO: BD usa 'activa'
+      activo: json['activo'] ?? true, // CORREGIDO: BD usa 'activo'
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : DateTime.now(),
     );
   }
@@ -64,7 +64,7 @@ class Categoria extends Equatable {
       id: json['id'] ?? '',
       nombre: json['nombre'] ?? 'Sin nombre',
       descripcion: json['descripcion'],
-      activo: json['activa'] ?? json['activo'] ?? true, // CORREGIDO: BD usa 'activa'
+      activo: json['activo'] ?? true, // CORREGIDO: BD usa 'activo'
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : DateTime.now(),
     );
   }
@@ -103,7 +103,7 @@ class Material extends Equatable {
       id: json['id'] ?? '',
       nombre: json['nombre'] ?? 'Sin nombre',
       descripcion: json['descripcion'],
-      activo: json['activo'] ?? json['activa'] ?? true, // ⚠️ CORREGIDO: Usar 'activa' como BD
+      activo: json['activo'] ?? true, // ⚠️ CORREGIDO: Usar 'activa' como BD
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : DateTime.now(),
     );
   }
@@ -184,7 +184,7 @@ class Talla extends Equatable {
       id: json['id'] ?? '',
       valor: json['valor'] ?? json['codigo'] ?? 'S/T',
       tipo: json['tipo'] == 'RANGO' ? TipoTalla.rango : TipoTalla.unica, // ⚠️ INDIVIDUAL también se mapea a unica
-      activo: json['activo'] ?? json['activa'] ?? true,
+      activo: json['activo'] ?? true,
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : DateTime.now(),
     );
   }
@@ -387,7 +387,7 @@ class Tienda extends Equatable {
   final String id;
   final String nombre;
   final String direccion;
-  final String adminTiendaId;
+  final String? adminTiendaId;
   final bool activo;
   final DateTime createdAt;
 
@@ -395,18 +395,18 @@ class Tienda extends Equatable {
     required this.id,
     required this.nombre,
     required this.direccion,
-    required this.adminTiendaId,
+    this.adminTiendaId,
     this.activo = true,
     required this.createdAt,
   });
 
   factory Tienda.fromJson(Map<String, dynamic> json) {
     return Tienda(
-      id: json['id'],
-      nombre: json['nombre'],
-      direccion: json['direccion'],
+      id: json['id'] ?? '',
+      nombre: json['nombre'] ?? 'Sin nombre',
+      direccion: json['direccion'] ?? 'Sin dirección',
       adminTiendaId: json['admin_tienda_id'] ?? json['manager_id'], // CORREGIDO: Usar ambos nombres posibles
-      activo: json['activa'] ?? json['activo'] ?? true, // CORREGIDO: BD usa 'activa' principalmente
+      activo: json['activo'] ?? true, // CORREGIDO: BD usa 'activo'
       createdAt: DateTime.parse(json['created_at']),
     );
   }
@@ -416,8 +416,8 @@ class Tienda extends Equatable {
       'id': id,
       'nombre': nombre,
       'direccion': direccion,
-      'admin_tienda_id': adminTiendaId,
-      'activa': activo, // CORREGIDO: BD usa 'activa'
+      'manager_id': adminTiendaId, // CORREGIDO: BD usa 'manager_id'
+      'activo': activo, // CORREGIDO: BD usa 'activo'
     };
   }
 

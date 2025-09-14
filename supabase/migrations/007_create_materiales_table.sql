@@ -32,13 +32,40 @@ CREATE INDEX idx_materiales_activo ON public.materiales(activo);
 CREATE INDEX idx_materiales_codigo_abrev ON public.materiales(codigo_abrev);
 
 -- =====================================================
--- 3. TRIGGER PARA UPDATED_AT
+-- 3. TRIGGER PARA UPDATED_AT (verificar que no existe)
 -- =====================================================
 
-CREATE TRIGGER trigger_materiales_updated_at
-    BEFORE UPDATE ON public.materiales
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at();
+-- Trigger COMENTADO PARA EVITAR DUPLICADOS - Manejado por migración 20250914020001_fix_trigger_duplicates.sql
+/*
+DO $$
+BEGIN
+    -- Verificar que la tabla existe antes de crear trigger
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'materiales' AND table_schema = 'public') THEN
+        -- Solo crear trigger si no existe ya
+        IF NOT EXISTS (
+            SELECT 1 FROM pg_trigger t
+            JOIN pg_class c ON t.tgrelid = c.oid
+            JOIN pg_namespace n ON c.relnamespace = n.oid
+            WHERE t.tgname = 'trigger_materiales_updated_at'
+            AND c.relname = 'materiales'
+            AND n.nspname = 'public'
+        ) THEN
+            -- Usar la función que existe
+            IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'update_updated_at') THEN
+                CREATE TRIGGER trigger_materiales_updated_at
+                    BEFORE UPDATE ON public.materiales
+                    FOR EACH ROW
+                    EXECUTE FUNCTION update_updated_at();
+            ELSIF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'actualizar_updated_at') THEN
+                CREATE TRIGGER trigger_materiales_updated_at
+                    BEFORE UPDATE ON public.materiales
+                    FOR EACH ROW
+                    EXECUTE FUNCTION public.actualizar_updated_at();
+            END IF;
+        END IF;
+    END IF;
+END $$;
+*/
 
 -- =====================================================
 -- 4. AGREGAR COLUMNA MATERIAL_ID A PRODUCTOS_MASTER

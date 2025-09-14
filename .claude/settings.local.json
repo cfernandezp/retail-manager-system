@@ -58,7 +58,15 @@
       "Bash(export:*)",
       "Bash(claude-dev invoke supabase-expert --task \"Migración Unificadora Tabla Tiendas: Crear migración para unificar esquema inconsistente de tabla tiendas. PROBLEMA: Campo activo/activa mezclado, admin_tienda_id/manager_id duplicados. SOLUCION: Migración que unifique a ''activa'' (boolean) y ''manager_id'' (UUID), corrija vista estadisticas_por_tienda línea 236, mantenga datos existentes sin reset. Repository Flutter ya maneja ambos campos como fallback, no requiere cambios. RESULTADO: Esquema BD consistente, vista SQL corregida, frontend funcional.\")",
       "Bash(git add supabase/migrations/20250911120001_productos_multi_tienda_schema.sql)",
-      "Read(//c/temp_retail/**)"
+      "Read(//c/temp_retail/**)",
+      "Bash(cat:*)",
+      "Bash(start chrome \"http://localhost:5000\")",
+      "Bash(sed:*)",
+      "Bash(nc localhost 5000)",
+      "Bash(git checkout:*)",
+      "WebFetch(domain:localhost)",
+      "Bash(tee:*)",
+      "Bash(start chrome:*)"
     ],
     "deny": [],
     "ask": []

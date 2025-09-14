@@ -207,3 +207,23 @@ class ProductsImported extends ProductsState {
   @override
   List<Object?> get props => [importedCount, errorCount, errors];
 }
+
+/// Estado de datos iniciales cargados para formularios
+class InitialProductDataLoaded extends ProductsState {
+  final List<Marca> marcas;
+  final List<Categoria> categorias;
+  final List<Material> materiales;
+  final List<Talla> tallas;
+  final List<ColorData> colores;
+
+  const InitialProductDataLoaded({
+    required this.marcas,
+    required this.categorias,
+    required this.materiales,
+    required this.tallas,
+    required this.colores,
+  });
+
+  @override
+  List<Object?> get props => [marcas, categorias, materiales, tallas, colores];
+}
