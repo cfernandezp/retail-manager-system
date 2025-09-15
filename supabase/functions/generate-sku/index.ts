@@ -49,7 +49,7 @@ serve(async (req) => {
           *,
           marcas!inner(nombre, prefijo_sku),
           categorias!inner(nombre, prefijo_sku),
-          tallas!inner(codigo, tipo, talla_min, talla_max, talla_unica)
+          tallas!inner(codigo, tipo, valor)
         `)
         .eq('id', producto_master_id)
         .single()

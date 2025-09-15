@@ -97,10 +97,14 @@ class ProductsBloc extends Bloc<ProductsEvent, ProductsState> {
         ));
       } else {
         // Si no hay estado previo, cargar con solo el producto seleccionado
-        emit(ProductDetailsLoaded(
-          product: producto!,
-          articulos: articulos,
-        ));
+        if (producto != null) {
+          emit(ProductDetailsLoaded(
+            product: producto,
+            articulos: articulos,
+          ));
+        } else {
+          emit(ProductsError('Producto no encontrado'));
+        }
       }
     } catch (e) {
       if (state is ProductsLoaded) {
@@ -248,7 +252,7 @@ class ProductsBloc extends Bloc<ProductsEvent, ProductsState> {
                 inventario['tienda_id'],
                 {
                   'stock_actual': inventario['stock_inicial'] ?? 0,
-                  'precio_local': inventario['precio_local'] ?? articulo.precioSugerido,
+                  'precio_venta': inventario['precio_local'] ?? articulo.precioSugerido, // CORREGIDO: usar campo correcto de BD
                 },
               );
             }

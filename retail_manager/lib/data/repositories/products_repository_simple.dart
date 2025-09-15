@@ -159,11 +159,12 @@ class ProductsRepository {
     try {
       // Corregir mapping de campos para que coincida con el esquema de BD actual
       final correctedData = <String, dynamic>{
-        'codigo': tallaData['valor'] ?? tallaData['codigo'],
-        // Eliminamos 'nombre' porque NO EXISTE en tabla tallas según esquema BD
-        // Usar directamente el tipo recibido (enum tipo_talla: 'RANGO' | 'UNICA')
+        'codigo': tallaData['codigo'] ?? tallaData['valor'],
+        'nombre': tallaData['nombre'] ?? tallaData['valor'], // CORREGIDO: tabla SÍ tiene campo nombre
+        'valor': tallaData['valor'],
         'tipo': tallaData['tipo'],
-        'activa': tallaData['activa'] ?? tallaData['activo'] ?? true, // BD usa 'activa'
+        'orden_display': tallaData['orden_display'] ?? 0,
+        'activo': tallaData['activo'] ?? tallaData['activa'] ?? true, // BD usa 'activo'
       };
       
       print('🔄 [Repository] Creando talla con datos: $correctedData');
@@ -186,12 +187,12 @@ class ProductsRepository {
   Future<List<ColorData>> getColores() async {
     try {
       print('🔄 [REPO] Ejecutando query colores...');
-      print('   Query: SELECT * FROM colores WHERE activa = true ORDER BY nombre');
+      print('   Query: SELECT * FROM colores WHERE activo = true ORDER BY nombre');
 
       final response = await _client
           .from('colores')
           .select('*')
-          .eq('activa', true)
+          .eq('activo', true) // RLS deshabilitado - campo confirmado
           .order('nombre');
       
       print('✅ [REPO] Respuesta raw colores: $response');
@@ -349,8 +350,7 @@ class ProductsRepository {
       final response = await _client
           .from('productos_master')
           .select('*, marcas(id, nombre), categorias(id, nombre), tallas(id, codigo)')
-          .eq('estado', 'ACTIVO') // Solo productos activos
-          .eq('id', id)
+          .eq('id', id) // CORREGIDO: No filtrar por estado en edición
           .maybeSingle();
 
       print('✅ [REPO] Respuesta raw producto por ID: $response');
@@ -377,8 +377,8 @@ class ProductsRepository {
   Future<List<Articulo>> getArticulosByProductoId(String productoId) async {
     try {
       print('🔄 [REPO] Ejecutando query artículos por producto ID: $productoId');
-      print('   Query: SELECT *, colores(id, nombre, hex_color), productos_master(id, nombre) FROM articulos WHERE producto_master_id = $productoId AND estado = ACTIVO');
-      
+      print('   Query: SELECT *, colores(id, nombre, hex_color), productos_master(id, nombre) FROM articulos WHERE producto_master_id = $productoId AND activo = true');
+
       final response = await _client
           .from('articulos')
           .select('''
@@ -387,7 +387,7 @@ class ProductsRepository {
             productos_master(id, nombre)
           ''')
           .eq('producto_master_id', productoId)
-          .eq('estado', 'ACTIVO');
+          .eq('activo', true);
 
       print('✅ [REPO] Respuesta raw artículos: $response');
       print('   Tipo: ${response.runtimeType}, Longitud: ${response.length}');
@@ -524,5 +524,96 @@ class ProductsRepository {
         .from('inventario_tienda')
         .stream(primaryKey: ['articulo_id', 'tienda_id'])
         .eq('tienda_id', tiendaId);
+  }
+
+  // ================== GESTIÓN DE PRECIOS POR ARTÍCULO ==================
+
+  /// Actualiza precios de costo y venta para un artículo específico en una tienda
+  Future<bool> updatePreciosArticulo({
+    required String articuloId,
+    required String tiendaId,
+    required double precioVenta,
+    required double precioCosto,
+  }) async {
+    try {
+      print('🔄 [REPO] Actualizando precios - Artículo: $articuloId, Tienda: $tiendaId');
+      print('🔄 [REPO] Precio Venta: S/ $precioVenta, Precio Costo: S/ $precioCosto');
+
+      // Validaciones locales
+      if (precioVenta < 0) {
+        throw Exception('El precio de venta no puede ser negativo');
+      }
+      if (precioCosto < 0) {
+        throw Exception('El precio de costo no puede ser negativo');
+      }
+      if (precioVenta < precioCosto) {
+        throw Exception('El precio de venta debe ser mayor o igual al precio de costo');
+      }
+
+      // Verificar si existe el registro de inventario
+      final existingInventory = await _client
+          .from('inventario_tienda')
+          .select('id')
+          .eq('articulo_id', articuloId)
+          .eq('tienda_id', tiendaId)
+          .maybeSingle();
+
+      if (existingInventory == null) {
+        // Crear nuevo registro de inventario con precios
+        print('🔄 [REPO] Creando nuevo registro de inventario...');
+        await _client.from('inventario_tienda').insert({
+          'articulo_id': articuloId,
+          'tienda_id': tiendaId,
+          'stock_actual': 0,
+          'precio_venta': precioVenta,
+          'precio_costo': precioCosto,
+          'activo': true,
+        });
+        print('✅ [REPO] Nuevo registro de inventario creado con precios');
+      } else {
+        // Actualizar precios en registro existente
+        print('🔄 [REPO] Actualizando precios en registro existente...');
+        await _client
+            .from('inventario_tienda')
+            .update({
+              'precio_venta': precioVenta,
+              'precio_costo': precioCosto,
+            })
+            .eq('articulo_id', articuloId)
+            .eq('tienda_id', tiendaId);
+        print('✅ [REPO] Precios actualizados exitosamente');
+      }
+
+      return true;
+    } catch (e) {
+      print('❌ [REPO] Error al actualizar precios: $e');
+      throw Exception('Error al actualizar precios del artículo: $e');
+    }
+  }
+
+  /// Obtiene los precios actuales de un artículo en una tienda específica
+  Future<Map<String, double>?> getPreciosArticulo({
+    required String articuloId,
+    required String tiendaId,
+  }) async {
+    try {
+      final response = await _client
+          .from('inventario_tienda')
+          .select('precio_venta, precio_costo')
+          .eq('articulo_id', articuloId)
+          .eq('tienda_id', tiendaId)
+          .maybeSingle();
+
+      if (response != null) {
+        return {
+          'precio_venta': response['precio_venta']?.toDouble() ?? 0.0,
+          'precio_costo': response['precio_costo']?.toDouble() ?? 0.0,
+        };
+      }
+      return null;
+    } catch (e) {
+      print('❌ [REPO] Error al obtener precios: $e');
+      return null;
+    }
   }
 }

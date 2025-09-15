@@ -53,6 +53,7 @@ class _CreateProductPageState extends State<CreateProductPage>
   List<models.Categoria> _categorias = [];
   List<models.Talla> _tallas = [];
   List<models.Material> _materiales = [];
+  List<models.ColorData> _colores = [];
   List<models.Tienda> _tiendas = [];
   
   // UI State
@@ -333,7 +334,59 @@ class _CreateProductPageState extends State<CreateProductPage>
       }
       
       print('=== FIN MATERIALES DEBUG ===\n');
-      
+
+      // ========================================================================
+      // CARGA DE COLORES
+      // ========================================================================
+      print('=== [DROPDOWN_DEBUG] ${DateTime.now()} ===');
+      print('🔄 INICIANDO carga de COLORES...');
+      print('📍 Método: _productsRepository.getColores()');
+
+      try {
+        final colores = await _productsRepository.getColores();
+        print('✅ COLORES: ${colores.length} registros cargados exitosamente');
+
+        if (colores.isNotEmpty) {
+          print('📋 Primeros 5 colores:');
+          for (int i = 0; i < colores.length && i < 5; i++) {
+            final color = colores[i];
+            print('   ${i+1}. ID: ${color.id} | Nombre: "${color.nombre}" | Hex: "${color.hexColor}"');
+          }
+
+          if (colores.length > 5) {
+            print('   ... y ${colores.length - 5} colores más');
+          }
+
+          // Validar estructura de datos
+          final primerColor = colores.first;
+          print('🔍 Estructura primer color:');
+          try {
+            print('   JSON: ${primerColor.toJson()}');
+          } catch (e) {
+            print('   ⚠️ Error al serializar color: $e');
+          }
+        } else {
+          print('⚠️ ALERTA: Lista de colores está COMPLETAMENTE VACÍA');
+          print('🚨 POSIBLES CAUSAS:');
+          print('   1. Tabla "colores" vacía en BD');
+          print('   2. Error en query SQL');
+          print('   3. Problema de permisos RLS');
+          print('   4. Conexión a BD fallida');
+        }
+
+        _colores = colores;
+        print('💾 Variable _colores asignada: ${_colores.length} registros');
+
+      } catch (e, stackTrace) {
+        print('❌ ERROR COLORES: $e');
+        print('📜 STACK TRACE COLORES:');
+        print('$stackTrace');
+        print('🚨 Error específico al cargar colores - proceso continuará');
+        _colores = []; // Lista vacía para evitar errores
+      }
+
+      print('=== FIN COLORES DEBUG ===\n');
+
       // ========================================================================
       // CARGA DE TIENDAS
       // ========================================================================
@@ -399,18 +452,19 @@ class _CreateProductPageState extends State<CreateProductPage>
       print('   📂 CATEGORÍAS....: ${_categorias.length} registros ${_categorias.isEmpty ? "❌ VACÍO" : "✅"}');
       print('   📏 TALLAS........: ${_tallas.length} registros ${_tallas.isEmpty ? "❌ VACÍO" : "✅"}');
       print('   🧵 MATERIALES....: ${_materiales.length} registros ${_materiales.isEmpty ? "❌ VACÍO" : "✅"}');
+      print('   🎨 COLORES.......: ${_colores.length} registros ${_colores.isEmpty ? "❌ VACÍO" : "✅"}');
       print('   🏪 TIENDAS.......: ${_tiendas.length} registros ${_tiendas.isEmpty ? "❌ VACÍO" : "✅"}');
       print('');
-      
+
       // Verificar estado crítico
-      final totalRegistros = _marcas.length + _categorias.length + _tallas.length + _materiales.length + _tiendas.length;
-      final dropdownsVacios = [_marcas, _categorias, _tallas, _materiales, _tiendas]
+      final totalRegistros = _marcas.length + _categorias.length + _tallas.length + _materiales.length + _colores.length + _tiendas.length;
+      final dropdownsVacios = [_marcas, _categorias, _tallas, _materiales, _colores, _tiendas]
           .where((lista) => lista.isEmpty).length;
-      
+
       print('📈 ESTADÍSTICAS GLOBALES:');
       print('   • Total registros cargados: $totalRegistros');
-      print('   • Dropdowns con datos: ${5 - dropdownsVacios}/5');
-      print('   • Dropdowns vacíos: $dropdownsVacios/5');
+      print('   • Dropdowns con datos: ${6 - dropdownsVacios}/6');
+      print('   • Dropdowns vacíos: $dropdownsVacios/6');
       print('');
       
       if (dropdownsVacios == 0) {
@@ -425,6 +479,7 @@ class _CreateProductPageState extends State<CreateProductPage>
         if (_categorias.isEmpty) print('   • CATEGORÍAS: Lista vacía');
         if (_tallas.isEmpty) print('   • TALLAS: Lista vacía');
         if (_materiales.isEmpty) print('   • MATERIALES: Lista vacía');
+        if (_colores.isEmpty) print('   • COLORES: Lista vacía');
         if (_tiendas.isEmpty) print('   • TIENDAS: Lista vacía');
       }
       
@@ -497,8 +552,33 @@ class _CreateProductPageState extends State<CreateProductPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+    return BlocListener<ProductsBloc, ProductsState>(
+      listener: (context, state) {
+        if (state is ProductCreated) {
+          // Mostrar mensaje de éxito
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Producto creado exitosamente'),
+              backgroundColor: AppTheme.successColor,
+            ),
+          );
+
+          // Navegar de vuelta a la lista de productos
+          if (mounted) {
+            context.pop();
+          }
+        } else if (state is ProductsError) {
+          // Mostrar mensaje de error
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error al crear producto: ${state.message}'),
+              backgroundColor: AppTheme.errorColor,
+            ),
+          );
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
       body: _isLoading
         ? const Center(child: CircularProgressIndicator())
         : _hasMinimalData()
@@ -530,6 +610,7 @@ class _CreateProductPageState extends State<CreateProductPage>
         ],
       )
       : _buildDebugDataView(), // ⚠️ NUEVO: Vista de debug
+      ),
     );
   }
   
@@ -1090,10 +1171,81 @@ class _CreateProductPageState extends State<CreateProductPage>
         ),
         const SizedBox(height: 8),
         if (_showNewMaterialField) ...[
+          // Mostrar materiales existentes como referencia
+          if (_materiales.isNotEmpty) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryTurquoise.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.primaryTurquoise.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Materiales existentes:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: _materiales.take(8).map((material) => Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryTurquoise.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        material.nombre,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    )).toList(),
+                  ),
+                ],
+              ),
+            ),
+          ],
           CorporateFormField(
             controller: _newMaterialController,
             label: 'Nuevo Material',
-            hintText: 'Nombre del material',
+            hintText: _materiales.isEmpty
+              ? 'Ej: Algodón, Poliéster, Lycra, Nylon'
+              : 'Ingresa un material que no esté en la lista superior',
+            validator: (value) {
+              if (value?.isEmpty ?? true) {
+                return 'El nombre del material es requerido';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              ElevatedButton(
+                onPressed: _createNewMaterial,
+                child: const Text('Crear Material'),
+              ),
+              const SizedBox(width: 8),
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _showNewMaterialField = false;
+                    _newMaterialController.clear();
+                  });
+                },
+                child: const Text('Cancelar'),
+              ),
+            ],
           ),
         ] else ...[
           DropdownButtonFormField<String>(
@@ -1731,13 +1883,17 @@ class _CreateProductPageState extends State<CreateProductPage>
 
   bool _canCreateProduct() {
     // Validar talla: o tiene una seleccionada, o está creando una nueva con campo completo
-    final tallaValida = _selectedTallaId != null || 
+    final tallaValida = _selectedTallaId != null ||
       (_showNewTallaField && _newTallaController.text.trim().isNotEmpty);
-    
+
+    // Validar material: o tiene uno seleccionado, o está creando uno nuevo con campo completo
+    final materialValido = _selectedMaterialId != null ||
+      (_showNewMaterialField && _newMaterialController.text.trim().isNotEmpty);
+
     return _nombreController.text.isNotEmpty &&
            (_selectedMarcaId != null || _newMarcaController.text.isNotEmpty) &&
            (_selectedCategoriaId != null || _newCategoriaController.text.isNotEmpty) &&
-           (_selectedMaterialId != null || _newMaterialController.text.isNotEmpty) &&
+           materialValido &&
            tallaValida &&
            _precioController.text.isNotEmpty &&
            _selectedColores.isNotEmpty;
@@ -1765,31 +1921,110 @@ class _CreateProductPageState extends State<CreateProductPage>
     setState(() => _isLoading = true);
 
     try {
-      // Preparar datos del producto
+      // 1. CREAR ELEMENTOS NUEVOS PRIMERO SI ES NECESARIO
+      String marcaIdFinal = _selectedMarcaId ?? '';
+      String categoriaIdFinal = _selectedCategoriaId ?? '';
+      String tallaIdFinal = _selectedTallaId ?? '';
+      String? materialIdFinal = _selectedMaterialId;
+
+      // Crear nueva marca si es necesaria
+      if (_showNewMarcaField && _newMarcaController.text.isNotEmpty) {
+        final nuevaMarca = await _productsRepository.createMarca({
+          'nombre': _newMarcaController.text.trim(),
+          'descripcion': 'Marca creada desde formulario de producto',
+          'prefijo_sku': _newMarcaController.text.substring(0, _newMarcaController.text.length > 3 ? 3 : _newMarcaController.text.length).toUpperCase(),
+          'activo': true,
+        });
+        marcaIdFinal = nuevaMarca.id;
+      }
+
+      // Crear nueva categoría si es necesaria
+      if (_showNewCategoriaField && _newCategoriaController.text.isNotEmpty) {
+        final nuevaCategoria = await _productsRepository.createCategoria({
+          'nombre': _newCategoriaController.text.trim(),
+          'descripcion': 'Categoría creada desde formulario de producto',
+          'prefijo_sku': _newCategoriaController.text.substring(0, _newCategoriaController.text.length > 3 ? 3 : _newCategoriaController.text.length).toUpperCase(),
+          'activo': true,
+        });
+        categoriaIdFinal = nuevaCategoria.id;
+      }
+
+      // Crear nueva talla si es necesaria
+      if (_showNewTallaField && _newTallaController.text.isNotEmpty) {
+        final nuevaTalla = await _productsRepository.createTalla({
+          'valor': _newTallaController.text.trim(),
+          'codigo': _newTallaController.text.trim(),
+          'nombre': _newTallaController.text.trim(),
+          'tipo': 'INDIVIDUAL',
+          'orden_display': _tallas.length + 1,
+          'activo': true,
+        });
+        tallaIdFinal = nuevaTalla.id;
+      }
+
+      // Crear nuevo material si es necesario
+      if (_showNewMaterialField && _newMaterialController.text.isNotEmpty) {
+        final nuevoMaterial = await _productsRepository.createMaterial({
+          'nombre': _newMaterialController.text.trim(),
+          'descripcion': 'Material creado desde formulario de producto',
+          'codigo_abrev': _newMaterialController.text.substring(0, _newMaterialController.text.length > 3 ? 3 : _newMaterialController.text.length).toUpperCase(),
+          'activo': true,
+        });
+        materialIdFinal = nuevoMaterial.id;
+      }
+
+      // 2. PREPARAR DATOS DEL PRODUCTO CON TODOS LOS IDs FINALES
       final productData = {
         'nombre': _nombreController.text.trim(),
         'precio_sugerido': double.parse(_precioController.text),
-        'marca_id': _selectedMarcaId,
-        'categoria_id': _selectedCategoriaId,
-        'talla_id': _selectedTallaId,
+        'marca_id': marcaIdFinal,
+        'categoria_id': categoriaIdFinal,
+        'talla_id': tallaIdFinal,
+        'material_id': materialIdFinal, // AGREGADO: material_id
       };
 
-      // Si hay nuevas marcas/categorías, crear primero
-      if (_newMarcaController.text.isNotEmpty) {
-        // Crear nueva marca (implementar en ProductsRepository)
-        // productData['marca_id'] = nuevaMarcaId;
+      // Remover material_id si es null para evitar errores de BD
+      if (materialIdFinal == null) {
+        productData.remove('material_id');
       }
-      
-      if (_newCategoriaController.text.isNotEmpty) {
-        // Crear nueva categoría (implementar en ProductsRepository)  
-        // productData['categoria_id'] = nuevaCategoriaId;
+
+      // 3. CONVERTIR NOMBRES DE COLORES A IDs
+      final coloresIds = <String>[];
+      for (final nombreColor in _selectedColores) {
+        // Buscar el color por nombre (case-insensitive)
+        final colorEncontrado = _colores.where((color) =>
+          color.nombre.toLowerCase() == nombreColor.toLowerCase()).firstOrNull;
+
+        if (colorEncontrado != null) {
+          coloresIds.add(colorEncontrado.id);
+        } else {
+          // Si no existe el color, crearlo
+          print('⚠️ Color "$nombreColor" no encontrado en BD, creando...');
+          try {
+            final nuevoColor = await _productsRepository.createColor({
+              'nombre': nombreColor,
+              'codigo_hex': _getHexFromColorName(nombreColor),
+              'codigo_abrev': nombreColor.substring(0, nombreColor.length > 3 ? 3 : nombreColor.length).toUpperCase(),
+              'activo': true,
+            });
+            coloresIds.add(nuevoColor.id);
+            print('✅ Color "$nombreColor" creado con ID: ${nuevoColor.id}');
+          } catch (e) {
+            print('❌ Error al crear color "$nombreColor": $e');
+            throw Exception('Error al crear color "$nombreColor": $e');
+          }
+        }
       }
+
+      print('🎨 Conversión colores completada:');
+      print('   Nombres: $_selectedColores');
+      print('   IDs: $coloresIds');
 
       // Crear el producto con BLoC
       context.read<ProductsBloc>().add(
         CreateProduct(
           productData: productData,
-          colores: _selectedColores,
+          colores: coloresIds, // CORREGIDO: usar IDs en lugar de nombres
           inventarioInicial: _inventarioPorTienda.entries
               .map((entry) => {
                     'tienda_id': entry.key,
@@ -1799,10 +2034,7 @@ class _CreateProductPageState extends State<CreateProductPage>
         ),
       );
 
-      // Navegar de vuelta a la lista
-      if (mounted) {
-        context.pop();
-      }
+      // La navegación se maneja en el BlocListener después del éxito
       
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1833,6 +2065,31 @@ class _CreateProductPageState extends State<CreateProductPage>
     };
 
     return colors[colorName.toLowerCase()] ?? Colors.grey[400]!;
+  }
+
+  String _getHexFromColorName(String colorName) {
+    final colorsHex = {
+      'rojo': '#FF0000',
+      'azul': '#0000FF',
+      'verde': '#008000',
+      'amarillo': '#FFFF00',
+      'negro': '#000000',
+      'blanco': '#FFFFFF',
+      'gris': '#808080',
+      'rosado': '#FFC0CB',
+      'morado': '#800080',
+      'naranja': '#FFA500',
+      'café': '#A52A2A',
+      'beige': '#F5F5DC',
+      'azul marino': '#000080',
+      'turquesa': '#40E0D0',
+      'dorado': '#FFD700',
+      'plateado': '#C0C0C0',
+      'vino': '#722F37',
+      'crema': '#FFFDD0',
+    };
+
+    return colorsHex[colorName.toLowerCase()] ?? '#808080'; // Default gris
   }
 
   String _generatePreviewSKU(String color) {
@@ -2081,9 +2338,9 @@ class _CreateProductPageState extends State<CreateProductPage>
         'valor': tallaValue,
         'codigo': tallaValue, // mismo valor
         'nombre': tallaValue, // mismo valor
-        'tipo': 'UNICA', // Valor por defecto
+        'tipo': 'INDIVIDUAL', // Corregido: usar valor válido según schema
         'orden_display': _tallas.length + 1,
-        'activa': true,
+        'activo': true, // Corregido: usar 'activo' no 'activa'
       };
 
       // Crear la talla usando el repositorio
@@ -2120,6 +2377,100 @@ class _CreateProductPageState extends State<CreateProductPage>
         mensajeError = 'La talla ya existe. Intenta con otro nombre.';
       }
       
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(mensajeError),
+            backgroundColor: AppTheme.errorColor,
+            duration: const Duration(seconds: 4), // Más tiempo para leer el mensaje específico
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  /// Crea un nuevo material usando ProductsRepository
+  void _createNewMaterial() async {
+    // Validar campo requerido
+    if (_newMaterialController.text.trim().isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('El campo material es requerido'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+      return;
+    }
+
+    final materialValue = _newMaterialController.text.trim();
+
+    // 1. VALIDACIÓN PREVIA: Verificar si ya existe un material con ese nombre
+    final materialExistente = _materiales.where((material) =>
+      material.nombre.toLowerCase() == materialValue.toLowerCase()).firstOrNull;
+
+    if (materialExistente != null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('El material "$materialValue" ya existe'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      // Preparar datos para crear el material
+      final materialData = {
+        'nombre': materialValue,
+        'descripcion': 'Material creado desde formulario de producto',
+        'codigo_abrev': materialValue.substring(0, materialValue.length > 3 ? 3 : materialValue.length).toUpperCase(),
+        'activo': true,
+      };
+
+      // Crear el material usando el repositorio
+      final nuevoMaterial = await _productsRepository.createMaterial(materialData);
+
+      // Agregar el nuevo material a la lista local
+      setState(() {
+        _materiales.add(nuevoMaterial);
+        _selectedMaterialId = nuevoMaterial.id; // Seleccionar automáticamente
+        _showNewMaterialField = false; // Volver al dropdown
+      });
+
+      // Limpiar formulario
+      _newMaterialController.clear();
+
+      // Mostrar mensaje de éxito
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Material "$materialValue" creado exitosamente'),
+            backgroundColor: AppTheme.primaryTurquoise,
+          ),
+        );
+      }
+
+    } catch (e) {
+      // 2. MANEJO MEJORADO DE ERRORES: Detectar error específico de constraint de unicidad
+      String mensajeError = 'Error al crear material: ${e.toString()}';
+
+      if (e.toString().contains('duplicate key') && e.toString().contains('materiales_nombre_key')) {
+        mensajeError = 'El material ya existe. Intenta con otro nombre.';
+      } else if (e.toString().contains('23505')) {
+        // Código PostgreSQL para violación de constraint de unicidad
+        mensajeError = 'El material ya existe. Intenta con otro nombre.';
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

@@ -1,267 +1,299 @@
 -- =====================================================
--- MIGRACIÓN INICIAL - SISTEMA MEDIAS MULTI-TIENDA
+-- ESQUEMA INICIAL LIMPIO - BASADO EN ESTADO REAL BD
 -- =====================================================
--- Descripción: Schema completo para productos multi-tienda con inventario independiente
--- Versión: 1.0.0
--- Fecha: 2025-09-11
-
-BEGIN;
-
--- =====================================================
--- 1. EXTENSIONES Y CONFIGURACIONES
+-- Archivo: 001_initial_schema_clean.sql
+-- Propósito: Reemplazo limpio de 001_initial_schema.sql
+-- Basado en: docs/CURRENT_SCHEMA_STATE.md (validado 2025-09-14)
+-- Fecha: 2025-09-15
 -- =====================================================
 
--- Extensiones necesarias
+-- EXTENSIONES REQUERIDAS
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- =====================================================
--- 2. ENUMS Y TIPOS PERSONALIZADOS
+-- TIPOS ENUM
 -- =====================================================
 
--- Tipo de talla (rango o única)
+-- Tipo de talla
 CREATE TYPE tipo_talla AS ENUM ('RANGO', 'UNICA');
 
--- Estado del producto
+-- Estado de producto
 CREATE TYPE estado_producto AS ENUM ('ACTIVO', 'INACTIVO', 'DESCONTINUADO');
 
 -- Tipo de movimiento de stock
 CREATE TYPE tipo_movimiento AS ENUM ('ENTRADA', 'SALIDA', 'TRASPASO', 'AJUSTE', 'VENTA', 'DEVOLUCION');
 
--- Roles del sistema
-CREATE TYPE rol_usuario AS ENUM ('SUPER_ADMIN', 'ADMIN_TIENDA', 'VENDEDOR');
+-- Roles de usuario (extendido para compatibilidad)
+CREATE TYPE rol_usuario_extended AS ENUM ('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'VENDEDOR', 'OPERARIO', 'CLIENTE');
+
+-- Estado de usuario
+CREATE TYPE estado_usuario AS ENUM ('PENDIENTE_EMAIL', 'PENDIENTE_APROBACION', 'ACTIVA', 'SUSPENDIDA', 'RECHAZADA');
 
 -- =====================================================
--- 3. TABLAS MAESTRAS
+-- TABLAS DE CATÁLOGO - ESTADO CONFIRMADO
 -- =====================================================
 
--- Tabla de marcas
+-- MARCAS - Campo: activo (boolean)
 CREATE TABLE marcas (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    nombre VARCHAR(100) NOT NULL UNIQUE,
-    descripcion TEXT,
-    logo_url TEXT,
-    activo BOOLEAN DEFAULT true,
-    prefijo_sku VARCHAR(3) NOT NULL UNIQUE, -- Para generación SKU: ARL, NIK, etc.
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    nombre          VARCHAR(100) NOT NULL UNIQUE,
+    descripcion     TEXT,
+    logo_url        TEXT,
+    activo          BOOLEAN DEFAULT true,
+    prefijo_sku     VARCHAR(3) NOT NULL UNIQUE,
+    created_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Tabla de categorías/materiales
+-- CATEGORIAS - Campo: activo (boolean)
 CREATE TABLE categorias (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    nombre VARCHAR(100) NOT NULL UNIQUE,
-    descripcion TEXT,
-    prefijo_sku VARCHAR(3) NOT NULL UNIQUE, -- Para generación SKU: POL, ALG, etc.
-    activo BOOLEAN DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    nombre          VARCHAR(100) NOT NULL UNIQUE,
+    descripcion     TEXT,
+    prefijo_sku     VARCHAR(3) NOT NULL UNIQUE,
+    activo          BOOLEAN DEFAULT true,
+    created_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Tabla de tallas flexibles
+-- TALLAS - Campo: activo (boolean)
 CREATE TABLE tallas (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    codigo VARCHAR(20) NOT NULL UNIQUE, -- 9-12, 6-8, 3, 12, etc.
-    tipo tipo_talla NOT NULL,
-    talla_min INTEGER, -- Para rangos: valor mínimo
-    talla_max INTEGER, -- Para rangos: valor máximo  
-    talla_unica INTEGER, -- Para tallas únicas
-    orden_display INTEGER DEFAULT 0, -- Para ordenamiento en UI
-    activo BOOLEAN DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Constraint: debe tener rango O talla única, no ambos
-    CONSTRAINT check_talla_tipo CHECK (
-        (tipo = 'RANGO' AND talla_min IS NOT NULL AND talla_max IS NOT NULL AND talla_unica IS NULL) OR
-        (tipo = 'UNICA' AND talla_unica IS NOT NULL AND talla_min IS NULL AND talla_max IS NULL)
-    ),
-    CONSTRAINT check_rango_valido CHECK (
-        tipo != 'RANGO' OR talla_min <= talla_max
-    )
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    codigo          VARCHAR(20) NOT NULL UNIQUE,
+    nombre          VARCHAR(50) NOT NULL,
+    tipo            VARCHAR(30) DEFAULT 'RANGO' CHECK (tipo IN ('RANGO', 'INDIVIDUAL', 'LETRA')),
+    orden_display   INTEGER DEFAULT 0,
+    activo          BOOLEAN DEFAULT true,
+    metadatos       JSONB DEFAULT '{}',
+    created_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    valor           VARCHAR(50) NOT NULL
 );
 
--- Tabla de colores
+-- COLORES - Campo: activo (boolean)
 CREATE TABLE colores (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    nombre VARCHAR(50) NOT NULL UNIQUE,
-    codigo_hex VARCHAR(7), -- #FF0000
-    prefijo_sku VARCHAR(3) NOT NULL UNIQUE, -- AZU, ROJ, NEG, etc.
-    activo BOOLEAN DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    nombre          VARCHAR(50) NOT NULL UNIQUE,
+    codigo_hex      VARCHAR(7),
+    codigo_abrev    VARCHAR(5) NOT NULL UNIQUE,
+    activo          BOOLEAN DEFAULT true,
+    created_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    hex_color       VARCHAR(7)
+);
+
+-- MATERIALES - Campo: activo (boolean)
+CREATE TABLE materiales (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    nombre          VARCHAR(100) NOT NULL UNIQUE,
+    descripcion     TEXT,
+    codigo_abrev    VARCHAR(10),
+    densidad        NUMERIC(5,2),
+    propiedades     JSONB DEFAULT '{}',
+    activo          BOOLEAN DEFAULT true,
+    created_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- =====================================================
--- 4. TABLAS DE TIENDAS Y USUARIOS
+-- TABLA DE ROLES (REQUERIDA POR USUARIOS)
 -- =====================================================
 
--- Tabla de tiendas
+-- ROLES - Sistema de permisos
+CREATE TABLE roles (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    nombre          VARCHAR(50) NOT NULL UNIQUE,
+    descripcion     TEXT,
+    permisos        JSONB DEFAULT '{}',
+    activo          BOOLEAN DEFAULT true,
+    created_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- =====================================================
+-- TABLA TIENDAS - ESQUEMA UNIFICADO
+-- =====================================================
+
+-- TIENDAS - Campo: activa (boolean), solo manager_id
 CREATE TABLE tiendas (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    nombre VARCHAR(200) NOT NULL,
-    codigo VARCHAR(10) NOT NULL UNIQUE, -- GAM, MES, etc.
-    direccion TEXT,
-    telefono VARCHAR(20),
-    email VARCHAR(100),
-    admin_tienda_id UUID, -- Usuario responsable de la tienda
-    activo BOOLEAN DEFAULT true,
-    configuracion JSONB DEFAULT '{}', -- Configuraciones específicas de tienda
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Perfiles de usuario extendidos (complementa auth.users de Supabase)
-CREATE TABLE perfiles_usuario (
-    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    nombre_completo VARCHAR(200) NOT NULL,
-    rol rol_usuario NOT NULL,
-    tienda_id UUID REFERENCES tiendas(id), -- NULL para SUPER_ADMIN
-    activo BOOLEAN DEFAULT true,
-    configuracion JSONB DEFAULT '{}',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Constraint: ADMIN_TIENDA y VENDEDOR deben tener tienda asignada
-    CONSTRAINT check_rol_tienda CHECK (
-        (rol = 'SUPER_ADMIN') OR 
-        (rol IN ('ADMIN_TIENDA', 'VENDEDOR') AND tienda_id IS NOT NULL)
-    )
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    nombre          VARCHAR(200) NOT NULL,
+    codigo          VARCHAR(10) NOT NULL UNIQUE,
+    direccion       TEXT,
+    telefono        VARCHAR(20),
+    email           VARCHAR(100),
+    manager_id      UUID,
+    activa          BOOLEAN DEFAULT true,
+    configuracion   JSONB DEFAULT '{}',
+    created_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- =====================================================
--- 5. TABLAS DE PRODUCTOS
+-- TABLA USUARIOS - COMPATIBILIDAD FRONTEND
 -- =====================================================
 
--- Tabla de productos master (producto base sin color)
+-- USUARIOS - Tabla que espera el frontend Flutter
+CREATE TABLE usuarios (
+    id                  UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    email               VARCHAR(255) NOT NULL UNIQUE,
+    nombre_completo     VARCHAR(255) NOT NULL,
+    telefono            VARCHAR(20),
+    direccion           TEXT,
+    rol_id              UUID REFERENCES roles(id) NOT NULL,
+    estado              estado_usuario DEFAULT 'PENDIENTE_APROBACION',
+    email_verificado    BOOLEAN DEFAULT false,
+    tienda_asignada     UUID REFERENCES tiendas(id),
+    aprobado_por        UUID REFERENCES usuarios(id),
+    fecha_aprobacion    TIMESTAMP WITH TIME ZONE,
+    fecha_suspension    TIMESTAMP WITH TIME ZONE,
+    fecha_reactivacion  TIMESTAMP WITH TIME ZONE,
+    fecha_rechazo       TIMESTAMP WITH TIME ZONE,
+    motivo_rechazo      TEXT,
+    motivo_suspension   TEXT,
+    ultimo_acceso       TIMESTAMP WITH TIME ZONE,
+    intentos_fallidos   INTEGER DEFAULT 0,
+    bloqueado_hasta     TIMESTAMP WITH TIME ZONE,
+    metadatos           JSONB DEFAULT '{}',
+    created_at          TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at          TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- =====================================================
+-- TABLAS DE PRODUCTOS
+-- =====================================================
+
+-- PRODUCTOS MASTER
 CREATE TABLE productos_master (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    nombre VARCHAR(500) NOT NULL, -- "Media fútbol polyester Arley 9-12"
-    descripcion TEXT,
-    marca_id UUID NOT NULL REFERENCES marcas(id),
-    categoria_id UUID NOT NULL REFERENCES categorias(id),
-    talla_id UUID NOT NULL REFERENCES tallas(id),
-    precio_sugerido DECIMAL(10,2) NOT NULL CHECK (precio_sugerido >= 0),
-    estado estado_producto DEFAULT 'ACTIVO',
-    imagen_principal_url TEXT,
-    especificaciones JSONB DEFAULT '{}', -- Propiedades adicionales
-    created_by UUID REFERENCES auth.users(id),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Índice único para evitar duplicados
-    UNIQUE(marca_id, categoria_id, talla_id, nombre)
+    id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    nombre                VARCHAR(255) NOT NULL,
+    descripcion           TEXT,
+    marca_id              UUID NOT NULL REFERENCES marcas(id),
+    categoria_id          UUID NOT NULL REFERENCES categorias(id),
+    talla_id              UUID NOT NULL REFERENCES tallas(id),
+    precio_sugerido       DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    codigo_base           VARCHAR(50),
+    imagen_principal_url  TEXT,
+    imagenes_adicionales  JSONB DEFAULT '[]',
+    especificaciones      JSONB DEFAULT '{}',
+    estado                estado_producto DEFAULT 'ACTIVO',
+    fecha_lanzamiento     DATE,
+    created_by            UUID REFERENCES usuarios(id),
+    created_at            TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at            TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    material_id           UUID REFERENCES materiales(id),
+
+    CONSTRAINT uk_productos_master_nombre_marca_talla UNIQUE (nombre, marca_id, talla_id)
 );
 
--- Tabla de artículos (variantes por color del producto master)
+-- ARTICULOS (PRODUCTO + COLOR)
 CREATE TABLE articulos (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    producto_master_id UUID NOT NULL REFERENCES productos_master(id) ON DELETE CASCADE,
-    color_id UUID NOT NULL REFERENCES colores(id),
-    sku VARCHAR(50) NOT NULL UNIQUE, -- MED-POL-ARL-912-AZU (generado automáticamente)
-    nombre_completo VARCHAR(600) NOT NULL, -- Nombre con color incluido
-    codigo_barras VARCHAR(50) UNIQUE, -- EAN13 o similar
-    imagen_url TEXT,
-    estado estado_producto DEFAULT 'ACTIVO',
-    peso_gramos INTEGER DEFAULT 0,
-    especificaciones_color JSONB DEFAULT '{}',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Un producto master no puede tener el mismo color duplicado
-    UNIQUE(producto_master_id, color_id)
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    producto_master_id      UUID NOT NULL REFERENCES productos_master(id) ON DELETE CASCADE,
+    color_id                UUID NOT NULL REFERENCES colores(id),
+    sku_auto                VARCHAR(100) NOT NULL UNIQUE,
+    codigo_barras           VARCHAR(50) UNIQUE,
+    imagen_color_url        TEXT,
+    precio_sugerido         DECIMAL(10,2),
+    activo                  BOOLEAN DEFAULT true,
+    fecha_activacion        DATE DEFAULT CURRENT_DATE,
+    fecha_descontinuacion   DATE,
+    created_at              TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at              TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+
+    CONSTRAINT uk_articulo_master_color UNIQUE (producto_master_id, color_id)
 );
 
 -- =====================================================
--- 6. INVENTARIO MULTI-TIENDA
+-- TABLAS DE INVENTARIO
 -- =====================================================
 
--- Tabla de inventario por tienda (stock y precio local)
+-- INVENTARIO POR TIENDA - Campo: activo (boolean)
 CREATE TABLE inventario_tienda (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    articulo_id UUID NOT NULL REFERENCES articulos(id) ON DELETE CASCADE,
-    tienda_id UUID NOT NULL REFERENCES tiendas(id) ON DELETE CASCADE,
-    stock_actual INTEGER NOT NULL DEFAULT 0 CHECK (stock_actual >= 0),
-    stock_minimo INTEGER DEFAULT 0 CHECK (stock_minimo >= 0),
-    stock_maximo INTEGER DEFAULT NULL CHECK (stock_maximo IS NULL OR stock_maximo >= stock_minimo),
-    precio_venta DECIMAL(10,2) NOT NULL CHECK (precio_venta >= 0),
-    precio_costo DECIMAL(10,2) DEFAULT 0 CHECK (precio_costo >= 0),
-    ubicacion_fisica VARCHAR(100), -- Estante, pasillo, etc.
-    activo BOOLEAN DEFAULT true,
-    ultima_venta TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Un artículo solo puede existir una vez por tienda
-    UNIQUE(articulo_id, tienda_id)
+    id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    articulo_id       UUID NOT NULL REFERENCES articulos(id) ON DELETE CASCADE,
+    tienda_id         UUID NOT NULL REFERENCES tiendas(id) ON DELETE CASCADE,
+    stock_actual      INTEGER NOT NULL DEFAULT 0 CHECK (stock_actual >= 0),
+    stock_minimo      INTEGER DEFAULT 0 CHECK (stock_minimo >= 0),
+    stock_maximo      INTEGER CHECK (stock_maximo IS NULL OR stock_maximo >= stock_minimo),
+    precio_venta      DECIMAL(10,2) NOT NULL CHECK (precio_venta >= 0),
+    precio_costo      DECIMAL(10,2) DEFAULT 0 CHECK (precio_costo >= 0),
+    ubicacion_fisica  VARCHAR(100),
+    activo            BOOLEAN DEFAULT true,
+    ultima_venta      TIMESTAMP WITH TIME ZONE,
+    created_at        TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at        TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+
+    CONSTRAINT uk_inventario_articulo_tienda UNIQUE (articulo_id, tienda_id)
 );
 
--- Tabla de movimientos de stock (auditoría completa)
+-- MOVIMIENTOS DE STOCK
 CREATE TABLE movimientos_stock (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    articulo_id UUID NOT NULL REFERENCES articulos(id),
-    tienda_id UUID NOT NULL REFERENCES tiendas(id),
-    tipo_movimiento tipo_movimiento NOT NULL,
-    cantidad INTEGER NOT NULL, -- Positivo para entradas, negativo para salidas
-    stock_anterior INTEGER NOT NULL,
-    stock_nuevo INTEGER NOT NULL,
-    precio_unitario DECIMAL(10,2),
-    costo_total DECIMAL(10,2),
-    motivo TEXT,
-    referencia_externa VARCHAR(100), -- ID de venta, compra, traspaso, etc.
-    tienda_origen_id UUID REFERENCES tiendas(id), -- Para traspasos
-    usuario_id UUID REFERENCES auth.users(id),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Validaciones de negocio
-    CONSTRAINT check_cantidad_tipo CHECK (
-        (tipo_movimiento IN ('ENTRADA', 'DEVOLUCION', 'AJUSTE') AND cantidad >= 0) OR
-        (tipo_movimiento IN ('SALIDA', 'VENTA') AND cantidad <= 0) OR
-        (tipo_movimiento = 'TRASPASO')
-    ),
-    CONSTRAINT check_traspaso_origen CHECK (
-        tipo_movimiento != 'TRASPASO' OR tienda_origen_id IS NOT NULL
-    )
+    id                    UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    articulo_id           UUID NOT NULL REFERENCES articulos(id),
+    tienda_id             UUID NOT NULL REFERENCES tiendas(id),
+    tipo_movimiento       tipo_movimiento NOT NULL,
+    cantidad              INTEGER NOT NULL,
+    stock_anterior        INTEGER NOT NULL,
+    stock_nuevo           INTEGER NOT NULL,
+    precio_unitario       DECIMAL(10,2),
+    costo_total           DECIMAL(10,2),
+    motivo                TEXT,
+    referencia_externa    VARCHAR(100),
+    tienda_origen_id      UUID REFERENCES tiendas(id),
+    usuario_id            UUID REFERENCES auth.users(id),
+    created_at            TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- =====================================================
--- 7. ÍNDICES PARA PERFORMANCE
+-- ÍNDICES BÁSICOS
 -- =====================================================
 
--- Índices para búsquedas frecuentes en POS
-CREATE INDEX idx_articulos_sku ON articulos(sku);
+-- Índices para campos activo/activa
+CREATE INDEX idx_marcas_activo ON marcas(activo) WHERE activo = true;
+CREATE INDEX idx_categorias_activo ON categorias(activo) WHERE activo = true;
+CREATE INDEX idx_tallas_activo ON tallas(activo) WHERE activo = true;
+CREATE INDEX idx_colores_activo ON colores(activo) WHERE activo = true;
+CREATE INDEX idx_materiales_activo ON materiales(activo) WHERE activo = true;
+CREATE INDEX idx_roles_activo ON roles(activo) WHERE activo = true;
+CREATE INDEX idx_tiendas_activa ON tiendas(activa) WHERE activa = true;
+CREATE INDEX idx_inventario_activo ON inventario_tienda(activo) WHERE activo = true;
+
+-- Índices para usuarios
+CREATE INDEX idx_usuarios_estado ON usuarios(estado);
+CREATE INDEX idx_usuarios_rol ON usuarios(rol_id);
+CREATE INDEX idx_usuarios_email ON usuarios(email);
+CREATE INDEX idx_usuarios_tienda ON usuarios(tienda_asignada) WHERE tienda_asignada IS NOT NULL;
+CREATE INDEX idx_usuarios_fecha_creacion ON usuarios(created_at);
+CREATE INDEX idx_usuarios_pendientes_urgentes ON usuarios(created_at) WHERE estado = 'PENDIENTE_APROBACION';
+
+-- Índices para búsquedas frecuentes
+CREATE INDEX idx_articulos_sku_auto ON articulos(sku_auto);
 CREATE INDEX idx_articulos_codigo_barras ON articulos(codigo_barras) WHERE codigo_barras IS NOT NULL;
 CREATE INDEX idx_articulos_producto_master ON articulos(producto_master_id);
-CREATE INDEX idx_articulos_estado ON articulos(estado) WHERE estado = 'ACTIVO';
-
--- Índices para inventario
-CREATE INDEX idx_inventario_tienda_articulo ON inventario_tienda(tienda_id, articulo_id);
-CREATE INDEX idx_inventario_stock_bajo ON inventario_tienda(tienda_id) WHERE stock_actual <= stock_minimo;
-CREATE INDEX idx_inventario_activo ON inventario_tienda(tienda_id) WHERE activo = true;
-
--- Índices para movimientos de stock
-CREATE INDEX idx_movimientos_articulo_tienda ON movimientos_stock(articulo_id, tienda_id);
-CREATE INDEX idx_movimientos_fecha ON movimientos_stock(created_at DESC);
-CREATE INDEX idx_movimientos_referencia ON movimientos_stock(referencia_externa) WHERE referencia_externa IS NOT NULL;
-CREATE INDEX idx_movimientos_tipo ON movimientos_stock(tipo_movimiento);
-
--- Índices para productos master
+CREATE INDEX idx_articulos_color ON articulos(color_id);
+CREATE INDEX idx_productos_master_estado ON productos_master(estado);
 CREATE INDEX idx_productos_master_marca ON productos_master(marca_id);
 CREATE INDEX idx_productos_master_categoria ON productos_master(categoria_id);
 CREATE INDEX idx_productos_master_talla ON productos_master(talla_id);
-CREATE INDEX idx_productos_master_estado ON productos_master(estado) WHERE estado = 'ACTIVO';
-CREATE INDEX idx_productos_master_nombre_busqueda ON productos_master USING gin(to_tsvector('spanish', nombre));
-
--- Índices para perfiles
-CREATE INDEX idx_perfiles_usuario_rol ON perfiles_usuario(rol);
-CREATE INDEX idx_perfiles_usuario_tienda ON perfiles_usuario(tienda_id) WHERE tienda_id IS NOT NULL;
+CREATE INDEX idx_productos_master_material ON productos_master(material_id);
+CREATE INDEX idx_tallas_orden ON tallas(orden_display);
+CREATE INDEX idx_tallas_tipo ON tallas(tipo);
+CREATE INDEX idx_inventario_stock_bajo ON inventario_tienda(stock_actual, stock_minimo) WHERE stock_actual <= stock_minimo;
 
 -- =====================================================
--- 8. ACTUALIZACIÓN DE FOREIGN KEYS
+-- COMENTARIOS DOCUMENTANDO ESTADO REAL
 -- =====================================================
 
--- Actualizar referencia de admin_tienda_id en tiendas
-ALTER TABLE tiendas ADD CONSTRAINT fk_tiendas_admin_tienda 
-    FOREIGN KEY (admin_tienda_id) REFERENCES perfiles_usuario(id);
+COMMENT ON TABLE marcas IS 'Marcas - Campo activo (boolean) confirmado BD real';
+COMMENT ON TABLE categorias IS 'Categorías - Campo activo (boolean) confirmado BD real';
+COMMENT ON TABLE tallas IS 'Tallas - Campo activo (boolean) confirmado BD real';
+COMMENT ON TABLE colores IS 'Colores - Campo activo (boolean) confirmado BD real';
+COMMENT ON TABLE materiales IS 'Materiales - Campo activo (boolean) confirmado BD real';
+COMMENT ON TABLE roles IS 'Roles de usuario - Sistema de permisos';
+COMMENT ON TABLE tiendas IS 'Tiendas - Campo activa (boolean), solo manager_id confirmado BD real';
+COMMENT ON TABLE usuarios IS 'Usuarios - Tabla compatible con frontend Flutter';
+COMMENT ON TABLE inventario_tienda IS 'Inventario - Campo activo (boolean) confirmado BD real';
 
-COMMIT;
+-- Fin del esquema inicial limpio

@@ -46,6 +46,10 @@ class _EditProductPageState extends State<EditProductPage> {
   models.ProductoMaster? _currentProduct;
   bool _isLoading = true;
 
+  // Gestión de artículos
+  List<models.Articulo> _articulos = [];
+  bool _showArticulosSection = false;
+
   final currencyFormatter = NumberFormat.currency(
     locale: 'es_PE',
     symbol: 'S/ ',
@@ -60,13 +64,39 @@ class _EditProductPageState extends State<EditProductPage> {
   }
 
   void _loadInitialData() {
-    // Cargar datos del producto actual
-    _productsBloc.add(LoadProductDetails(widget.productId));
-    // Cargar datos para dropdowns
+    print('🔄 [EditProduct] Iniciando carga de datos para producto: ${widget.productId}');
+
+    // Cargar datos para dropdowns primero
     _productsBloc.add(const LoadInitialProductData());
+
+    // Luego cargar datos del producto actual
+    _productsBloc.add(LoadProductDetails(widget.productId));
+
+    // Timeout de seguridad para evitar loading infinito
+    Future.delayed(const Duration(seconds: 10), () {
+      if (mounted && _isLoading) {
+        print('⚠️ [EditProduct] Timeout de carga, forzando salida de loading');
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error de carga: Tiempo de espera agotado'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    });
   }
 
   void _populateForm(models.ProductoMaster product) {
+    print('🔄 [EditProduct] Poblando formulario con producto: ${product.nombre}');
+    print('   ID: ${product.id}');
+    print('   MarcaId: ${product.marcaId}');
+    print('   CategoriaId: ${product.categoriaId}');
+    print('   MaterialId: ${product.materialId}');
+    print('   Activo: ${product.activo}');
+
     setState(() {
       _currentProduct = product;
       _codigoController.text = product.id;
@@ -79,6 +109,8 @@ class _EditProductPageState extends State<EditProductPage> {
       _isActive = product.activo;
       _isLoading = false;
     });
+
+    print('✅ [EditProduct] Formulario poblado, _isLoading: $_isLoading');
   }
 
   void _handleSave() {
@@ -92,14 +124,14 @@ class _EditProductPageState extends State<EditProductPage> {
       'categoria_id': _selectedCategoriaId,
       'material_id': _selectedMaterialId,
       'precio_sugerido': double.parse(_precioBaseController.text),
-      'activo': _isActive,
+      'estado': _isActive ? 'ACTIVO' : 'INACTIVO', // CORREGIDO: usar estado en lugar de activo
     };
 
     _productsBloc.add(UpdateProductoMaster(widget.productId, updateData));
   }
 
   void _handleCancel() {
-    Navigator.of(context).pop();
+    context.pop();
   }
 
   @override
@@ -109,9 +141,18 @@ class _EditProductPageState extends State<EditProductPage> {
 
     return BlocConsumer<ProductsBloc, ProductsState>(
       listener: (context, state) {
+        print('🔄 [EditProduct] Listener recibió estado: ${state.runtimeType}');
+
         if (state is ProductDetailsLoaded) {
+          print('✅ [EditProduct] ProductDetailsLoaded recibido: ${state.product.nombre}');
           _populateForm(state.product);
+        } else if (state is ProductsLoaded && state.selectedProductArticulos != null) {
+          print('✅ [EditProduct] Artículos cargados: ${state.selectedProductArticulos!.length}');
+          setState(() {
+            _articulos = state.selectedProductArticulos!;
+          });
         } else if (state is InitialProductDataLoaded) {
+          print('✅ [EditProduct] Datos iniciales cargados: marcas=${state.marcas.length}, categorias=${state.categorias.length}');
           setState(() {
             _marcas = state.marcas;
             _categorias = state.categorias;
@@ -124,14 +165,23 @@ class _EditProductPageState extends State<EditProductPage> {
               backgroundColor: AppTheme.successColor,
             ),
           );
-          Navigator.of(context).pop();
+          // Recargar la lista de productos para reflejar cambios
+          _productsBloc.add(RefreshProducts());
+          if (mounted) {
+            context.pop();
+          }
         } else if (state is ProductsError) {
+          print('❌ [EditProduct] Error recibido: ${state.message}');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(state.message),
               backgroundColor: AppTheme.errorColor,
             ),
           );
+          // También quitar el estado de loading si hay error
+          setState(() {
+            _isLoading = false;
+          });
         }
       },
       builder: (context, state) {
@@ -186,7 +236,9 @@ class _EditProductPageState extends State<EditProductPage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Editar Producto',
+                  _currentProduct != null
+                    ? 'Editar: ${_currentProduct!.nombre}'
+                    : 'Editar Producto',
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 IconButton(
@@ -242,7 +294,9 @@ class _EditProductPageState extends State<EditProductPage> {
   Widget _buildMobilePage() {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Editar Producto'),
+        title: Text(_currentProduct != null
+          ? 'Editar: ${_currentProduct!.nombre}'
+          : 'Editar Producto'),
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: _handleCancel,
@@ -470,8 +524,103 @@ class _EditProductPageState extends State<EditProductPage> {
               color: _isActive ? AppTheme.successColor : Colors.grey,
             ),
           ),
+
+          const SizedBox(height: 24),
+
+          // Sección de artículos expandible
+          _buildArticulosSection(),
         ],
       ),
+    );
+  }
+
+  Widget _buildArticulosSection() {
+    return Card(
+      child: Column(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.inventory_2),
+            title: const Text('Artículos / Variantes'),
+            subtitle: Text('${_articulos.length} artículos encontrados'),
+            trailing: IconButton(
+              icon: Icon(_showArticulosSection ? Icons.expand_less : Icons.expand_more),
+              onPressed: () {
+                setState(() {
+                  _showArticulosSection = !_showArticulosSection;
+                });
+                if (_showArticulosSection && _articulos.isEmpty) {
+                  // Cargar artículos si no están cargados
+                  _productsBloc.add(LoadProductDetails(widget.productId));
+                }
+              },
+            ),
+          ),
+          if (_showArticulosSection) ...[
+            const Divider(height: 1),
+            if (_articulos.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text(
+                  'No hay artículos creados para este producto',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              )
+            else
+              ..._articulos.map((articulo) => _buildArticuloTile(articulo)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildArticuloTile(models.Articulo articulo) {
+    return ListTile(
+      leading: CircleAvatar(
+        backgroundColor: AppTheme.primaryTurquoise.withOpacity(0.1),
+        child: Text(
+          articulo.color?.nombre.substring(0, 2).toUpperCase() ?? 'AR',
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: AppTheme.primaryTurquoise,
+          ),
+        ),
+      ),
+      title: Text(articulo.skuAuto.isNotEmpty ? articulo.skuAuto : 'SKU no disponible'),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Color: ${articulo.color?.nombre ?? "N/A"}'),
+          Text('Precio: S/ ${articulo.precioSugerido.toStringAsFixed(2)}'),
+        ],
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.edit_outlined, size: 18),
+            onPressed: () {
+              // TODO: Implementar edición de artículo específico
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Función en desarrollo: Editar artículo'),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.inventory, size: 18),
+            onPressed: () {
+              // TODO: Implementar gestión de inventario específico
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Función en desarrollo: Gestionar inventario'),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+      isThreeLine: true,
     );
   }
 

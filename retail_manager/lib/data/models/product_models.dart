@@ -249,7 +249,7 @@ class ProductoMaster extends Equatable {
       tallaId: json['talla_id'] ?? '',
       materialId: json['material_id'],
       precioSugerido: json['precio_sugerido'] != null ? (json['precio_sugerido'] as num).toDouble() : 0.0,
-      activo: json['activo'] ?? true,
+      activo: (json['estado'] ?? json['activo']) == 'ACTIVO' || (json['activo'] ?? false),
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : DateTime.now(),
       marca: json['marcas'] != null ? Marca.fromJson(json['marcas']) : null,
       categoria: json['categorias'] != null ? Categoria.fromJson(json['categorias']) : null,
@@ -269,7 +269,7 @@ class ProductoMaster extends Equatable {
       'categoria_id': categoriaId,
       'talla_id': tallaId,
       'precio_sugerido': precioSugerido,
-      'activo': activo,
+      'estado': activo ? 'ACTIVO' : 'INACTIVO',
     };
     
     // Agregar material_id solo si está presente
