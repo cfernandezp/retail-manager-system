@@ -10,6 +10,11 @@ import '../pages/products/products_page.dart';
 import '../pages/products/create_product_page.dart';
 import '../pages/products/product_detail_page.dart';
 import '../pages/products/edit_product_page.dart';
+import '../pages/products/colors_page.dart';
+import '../pages/products/marcas_page.dart';
+import '../pages/products/categorias_page.dart';
+import '../pages/products/materiales_page.dart';
+import '../pages/products/tallas_page.dart';
 import '../pages/inventory/inventory_page.dart';
 import '../pages/sales/sales_page.dart';
 import '../pages/customers/customers_page.dart';
@@ -95,6 +100,61 @@ class AppRouter {
             path: 'create',
             name: 'create_product',
             builder: (context, state) => const CreateProductPage(),
+          ),
+
+          // Gestión de colores
+          GoRoute(
+            path: 'colors',
+            name: 'colors',
+            builder: (context, state) => AdaptiveNavigationScaffold(
+              currentRoute: '$products/colors',
+              pageTitle: 'Gestión de Colores',
+              child: const ColorsPage(),
+            ),
+          ),
+
+          // Gestión de marcas
+          GoRoute(
+            path: 'marcas',
+            name: 'marcas',
+            builder: (context, state) => AdaptiveNavigationScaffold(
+              currentRoute: '$products/marcas',
+              pageTitle: 'Gestión de Marcas',
+              child: const MarcasPage(),
+            ),
+          ),
+
+          // Gestión de categorías
+          GoRoute(
+            path: 'categorias',
+            name: 'categorias',
+            builder: (context, state) => AdaptiveNavigationScaffold(
+              currentRoute: '$products/categorias',
+              pageTitle: 'Gestión de Categorías',
+              child: const CategoriasPage(),
+            ),
+          ),
+
+          // Gestión de materiales
+          GoRoute(
+            path: 'materiales',
+            name: 'materiales',
+            builder: (context, state) => AdaptiveNavigationScaffold(
+              currentRoute: '$products/materiales',
+              pageTitle: 'Gestión de Materiales',
+              child: const MaterialesPage(),
+            ),
+          ),
+
+          // Gestión de tallas
+          GoRoute(
+            path: 'tallas',
+            name: 'tallas',
+            builder: (context, state) => AdaptiveNavigationScaffold(
+              currentRoute: '$products/tallas',
+              pageTitle: 'Gestión de Tallas',
+              child: const TallasPage(),
+            ),
           ),
 
           // Ver detalle de producto

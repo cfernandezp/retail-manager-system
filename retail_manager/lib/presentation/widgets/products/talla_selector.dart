@@ -83,7 +83,7 @@ class TallaSelector extends StatelessWidget {
           children: [
             // Icono de talla
             Icon(
-              _getTallaIcon(talla.tipo),
+              _getTallaIcon(_stringToTipoTalla(talla.tipo)),
               size: 24,
               color: isSelected 
                   ? AppTheme.primaryTurquoise 
@@ -105,7 +105,7 @@ class TallaSelector extends StatelessWidget {
             
             // Tipo de talla
             Text(
-              _getTipoLabel(talla.tipo),
+              _getTipoLabel(_stringToTipoTalla(talla.tipo)),
               style: TextStyle(
                 fontSize: 10,
                 color: isSelected 
@@ -134,6 +134,19 @@ class TallaSelector extends StatelessWidget {
         return 'Rango';
       case models.TipoTalla.unica:
         return 'Única';
+    }
+  }
+
+  /// Convierte un String a TipoTalla enum
+  models.TipoTalla _stringToTipoTalla(String tipo) {
+    switch (tipo.toUpperCase()) {
+      case 'RANGO':
+      case 'LETRA':
+        return models.TipoTalla.rango;
+      case 'UNICA':
+      case 'INDIVIDUAL':
+      default:
+        return models.TipoTalla.unica;
     }
   }
 

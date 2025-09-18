@@ -8,6 +8,7 @@ import '../../../data/models/product_models.dart' as models;
 import '../../../data/repositories/products_repository_simple.dart';
 import '../../bloc/products/products_bloc.dart';
 import '../../widgets/products/color_selector.dart';
+import '../../widgets/products/color_selector_enhanced.dart';
 import '../../widgets/products/talla_selector.dart';
 import '../../widgets/common/corporate_form_field.dart';
 import '../../widgets/common/corporate_button.dart';
@@ -52,7 +53,7 @@ class _CreateProductPageState extends State<CreateProductPage>
   List<models.Marca> _marcas = [];
   List<models.Categoria> _categorias = [];
   List<models.Talla> _tallas = [];
-  List<models.Material> _materiales = [];
+  List<models.MaterialModel> _materiales = [];
   List<models.ColorData> _colores = [];
   List<models.Tienda> _tiendas = [];
   
@@ -555,11 +556,37 @@ class _CreateProductPageState extends State<CreateProductPage>
     return BlocListener<ProductsBloc, ProductsState>(
       listener: (context, state) {
         if (state is ProductCreated) {
-          // Mostrar mensaje de éxito
+          // Mostrar mensaje de éxito detallado
+          final articulosCreados = _selectedColores.length;
+          final tiendasConfiguradas = _selectedTiendas.length;
+
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Producto creado exitosamente'),
+            SnackBar(
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '✅ ${state.product.nombre} creado exitosamente',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  Text('• $articulosCreados artículos generados (uno por color)'),
+                  if (tiendasConfiguradas > 0)
+                    Text('• Configurado en $tiendasConfiguradas tiendas'),
+                  Text('• ID Producto: ${state.product.id}'),
+                ],
+              ),
               backgroundColor: AppTheme.successColor,
+              duration: const Duration(seconds: 4),
+              behavior: SnackBarBehavior.floating,
+              action: SnackBarAction(
+                label: 'Ver Lista',
+                textColor: Colors.white,
+                onPressed: () {
+                  // Opcional: navegar directamente a la lista
+                },
+              ),
             ),
           );
 
@@ -568,11 +595,31 @@ class _CreateProductPageState extends State<CreateProductPage>
             context.pop();
           }
         } else if (state is ProductsError) {
-          // Mostrar mensaje de error
+          // Mostrar mensaje de error detallado
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error al crear producto: ${state.message}'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '❌ Error al crear producto',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(state.message),
+                ],
+              ),
               backgroundColor: AppTheme.errorColor,
+              duration: const Duration(seconds: 6),
+              behavior: SnackBarBehavior.floating,
+              action: SnackBarAction(
+                label: 'Reintentar',
+                textColor: Colors.white,
+                onPressed: () {
+                  // El usuario puede volver a intentar crear el producto
+                },
+              ),
             ),
           );
         }
@@ -1449,14 +1496,15 @@ class _CreateProductPageState extends State<CreateProductPage>
           ),
           const SizedBox(height: 24),
 
-          // Color selector
-          ColorSelector(
+          // Color selector - Colores de BD + opción crear nuevos
+          ColorSelectorEnhanced(
+            availableColors: _colores,
             selectedColors: _selectedColores,
-            onColorsChanged: (colors) {
+            onColorsChanged: (colorNames) {
               setState(() {
-                _selectedColores = colors;
+                _selectedColores = colorNames;
                 // Inicializar precios por color
-                for (final color in colors) {
+                for (final color in colorNames) {
                   if (!_preciosPorColor.containsKey(color)) {
                     final precioBase = double.tryParse(_precioController.text) ?? 0.0;
                     _preciosPorColor[color] = precioBase;
@@ -1464,8 +1512,14 @@ class _CreateProductPageState extends State<CreateProductPage>
                 }
                 // Remover precios de colores no seleccionados
                 _preciosPorColor.removeWhere(
-                  (color, _) => !colors.contains(color),
+                  (color, _) => !colorNames.contains(color),
                 );
+              });
+            },
+            onColorCreated: (newColor) {
+              // Recargar colores cuando se crea uno nuevo
+              setState(() {
+                _colores.add(newColor);
               });
             },
           ),
@@ -1921,11 +1975,22 @@ class _CreateProductPageState extends State<CreateProductPage>
     setState(() => _isLoading = true);
 
     try {
+      print('');
+      print('🚀 [CREAR_PRODUCTO] ==================== INICIO ====================');
+      print('📋 Resumen de datos a crear:');
+      print('   • Nombre: ${_nombreController.text.trim()}');
+      print('   • Colores seleccionados: $_selectedColores (${_selectedColores.length} colores)');
+      print('   • Tiendas seleccionadas: $_selectedTiendas (${_selectedTiendas.length} tiendas)');
+      print('   • Precio base: ${_precioController.text}');
+      print('');
+
       // 1. CREAR ELEMENTOS NUEVOS PRIMERO SI ES NECESARIO
       String marcaIdFinal = _selectedMarcaId ?? '';
       String categoriaIdFinal = _selectedCategoriaId ?? '';
       String tallaIdFinal = _selectedTallaId ?? '';
       String? materialIdFinal = _selectedMaterialId;
+
+      print('🔧 [FASE_1] Preparando elementos de catálogo...');
 
       // Crear nueva marca si es necesaria
       if (_showNewMarcaField && _newMarcaController.text.isNotEmpty) {
@@ -1989,6 +2054,7 @@ class _CreateProductPageState extends State<CreateProductPage>
       }
 
       // 3. CONVERTIR NOMBRES DE COLORES A IDs
+      print('🎨 [FASE_4] Convirtiendo nombres de colores a IDs...');
       final coloresIds = <String>[];
       for (final nombreColor in _selectedColores) {
         // Buscar el color por nombre (case-insensitive)
@@ -1997,28 +2063,27 @@ class _CreateProductPageState extends State<CreateProductPage>
 
         if (colorEncontrado != null) {
           coloresIds.add(colorEncontrado.id);
+          print('   ✅ "$nombreColor" → ID: ${colorEncontrado.id}');
         } else {
-          // Si no existe el color, crearlo
-          print('⚠️ Color "$nombreColor" no encontrado en BD, creando...');
-          try {
-            final nuevoColor = await _productsRepository.createColor({
-              'nombre': nombreColor,
-              'codigo_hex': _getHexFromColorName(nombreColor),
-              'codigo_abrev': nombreColor.substring(0, nombreColor.length > 3 ? 3 : nombreColor.length).toUpperCase(),
-              'activo': true,
-            });
-            coloresIds.add(nuevoColor.id);
-            print('✅ Color "$nombreColor" creado con ID: ${nuevoColor.id}');
-          } catch (e) {
-            print('❌ Error al crear color "$nombreColor": $e');
-            throw Exception('Error al crear color "$nombreColor": $e');
-          }
+          // Este caso no debería ocurrir ya que ColorSelectorEnhanced
+          // solo permite seleccionar colores existentes o crea nuevos automáticamente
+          print('   ⚠️ Color "$nombreColor" no encontrado en la lista actual');
+          throw Exception('Color "$nombreColor" no encontrado. Esto es un error del sistema.');
         }
       }
 
-      print('🎨 Conversión colores completada:');
-      print('   Nombres: $_selectedColores');
-      print('   IDs: $coloresIds');
+      print('🎨 [FASE_4] Conversión colores completada:');
+      print('   Nombres originales: $_selectedColores');
+      print('   IDs convertidos: $coloresIds');
+      print('');
+
+      print('🏗️ [FASE_5] Creando producto en BD...');
+      print('📦 Datos del producto:');
+      productData.forEach((key, value) => print('   $key: $value'));
+      print('');
+      print('🎨 Colores a asociar: $coloresIds');
+      print('🏪 Inventario inicial para ${_inventarioPorTienda.length} tiendas');
+      print('');
 
       // Crear el producto con BLoC
       context.read<ProductsBloc>().add(
@@ -2033,6 +2098,11 @@ class _CreateProductPageState extends State<CreateProductPage>
               .toList(),
         ),
       );
+
+      print('✅ [CREAR_PRODUCTO] Evento CreateProduct enviado al BLoC');
+      print('⏳ Esperando resultado...');
+      print('==================== FIN LOGGING LOCAL ====================');
+      print('');
 
       // La navegación se maneja en el BlocListener después del éxito
       

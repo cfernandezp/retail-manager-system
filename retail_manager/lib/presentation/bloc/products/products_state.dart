@@ -212,7 +212,7 @@ class ProductsImported extends ProductsState {
 class InitialProductDataLoaded extends ProductsState {
   final List<Marca> marcas;
   final List<Categoria> categorias;
-  final List<Material> materiales;
+  final List<MaterialModel> materiales;
   final List<Talla> tallas;
   final List<ColorData> colores;
 

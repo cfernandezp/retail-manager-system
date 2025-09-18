@@ -209,30 +209,158 @@ class _ProductsPageState extends State<ProductsPage>
                       ),
                     ),
 
-                    // Action Buttons
+                    // Action Buttons - Compact Design
                     Row(
                       children: [
                         if (state is ProductsLoaded) ...[
-                          // Export Button
-                          OutlinedButton.icon(
-                            onPressed: () => _showExportDialog(context),
-                            icon: const Icon(Icons.download, size: 18),
-                            label: const Text('Exportar'),
+                          // Gestión de Catálogo - Botones compactos
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryTurquoise.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: AppTheme.primaryTurquoise.withOpacity(0.3),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Catálogo:',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppTheme.primaryTurquoise,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                // Colores
+                                Tooltip(
+                                  message: 'Gestionar Colores',
+                                  child: IconButton(
+                                    onPressed: () => context.push('/products/colors'),
+                                    icon: const Icon(Icons.palette_outlined, size: 20),
+                                    iconSize: 20,
+                                    padding: const EdgeInsets.all(8),
+                                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                    style: IconButton.styleFrom(
+                                      backgroundColor: Colors.transparent,
+                                      foregroundColor: AppTheme.primaryTurquoise,
+                                    ),
+                                  ),
+                                ),
+                                // Marcas
+                                Tooltip(
+                                  message: 'Gestionar Marcas',
+                                  child: IconButton(
+                                    onPressed: () => context.push('/products/marcas'),
+                                    icon: const Icon(Icons.branding_watermark_outlined, size: 20),
+                                    iconSize: 20,
+                                    padding: const EdgeInsets.all(8),
+                                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                    style: IconButton.styleFrom(
+                                      backgroundColor: Colors.transparent,
+                                      foregroundColor: AppTheme.primaryTurquoise,
+                                    ),
+                                  ),
+                                ),
+                                // Categorías
+                                Tooltip(
+                                  message: 'Gestionar Categorías',
+                                  child: IconButton(
+                                    onPressed: () => context.push('/products/categorias'),
+                                    icon: const Icon(Icons.category_outlined, size: 20),
+                                    iconSize: 20,
+                                    padding: const EdgeInsets.all(8),
+                                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                    style: IconButton.styleFrom(
+                                      backgroundColor: Colors.transparent,
+                                      foregroundColor: AppTheme.primaryTurquoise,
+                                    ),
+                                  ),
+                                ),
+                                // Tallas
+                                Tooltip(
+                                  message: 'Gestionar Tallas',
+                                  child: IconButton(
+                                    onPressed: () => context.push('/products/tallas'),
+                                    icon: const Icon(Icons.straighten_outlined, size: 20),
+                                    iconSize: 20,
+                                    padding: const EdgeInsets.all(8),
+                                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                    style: IconButton.styleFrom(
+                                      backgroundColor: Colors.transparent,
+                                      foregroundColor: AppTheme.primaryTurquoise,
+                                    ),
+                                  ),
+                                ),
+                                // Materiales
+                                Tooltip(
+                                  message: 'Gestionar Materiales',
+                                  child: IconButton(
+                                    onPressed: () => context.push('/products/materiales'),
+                                    icon: const Icon(Icons.fiber_manual_record_outlined, size: 20),
+                                    iconSize: 20,
+                                    padding: const EdgeInsets.all(8),
+                                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                    style: IconButton.styleFrom(
+                                      backgroundColor: Colors.transparent,
+                                      foregroundColor: AppTheme.primaryTurquoise,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(width: 16),
+
+                          // Separador visual
+                          Container(
+                            height: 32,
+                            width: 1,
+                            color: Colors.grey[300],
+                          ),
+
+                          const SizedBox(width: 16),
+
+                          // Export/Import - Botones compactos
+                          Tooltip(
+                            message: 'Exportar Productos',
+                            child: IconButton(
+                              onPressed: () => _showExportDialog(context),
+                              icon: const Icon(Icons.download_outlined, size: 20),
+                              style: IconButton.styleFrom(
+                                side: BorderSide(color: Colors.grey[300]!),
+                                padding: const EdgeInsets.all(8),
+                              ),
+                            ),
                           ),
                           const SizedBox(width: 8),
-                          // Import Button  
-                          OutlinedButton.icon(
-                            onPressed: () => _showImportDialog(context),
-                            icon: const Icon(Icons.upload, size: 18),
-                            label: const Text('Importar'),
+                          Tooltip(
+                            message: 'Importar Productos',
+                            child: IconButton(
+                              onPressed: () => _showImportDialog(context),
+                              icon: const Icon(Icons.upload_outlined, size: 20),
+                              style: IconButton.styleFrom(
+                                side: BorderSide(color: Colors.grey[300]!),
+                                padding: const EdgeInsets.all(8),
+                              ),
+                            ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 16),
                         ],
-                        // New Product Button
+                        // New Product Button - Se mantiene prominente
                         ElevatedButton.icon(
                           onPressed: () => _navigateToCreateProduct(),
                           icon: const Icon(Icons.add, size: 18),
                           label: const Text('Nuevo Producto'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryTurquoise,
+                            foregroundColor: Colors.white,
+                          ),
                         ),
                       ],
                     ),

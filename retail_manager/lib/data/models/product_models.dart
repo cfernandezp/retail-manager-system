@@ -24,7 +24,7 @@ class Marca extends Equatable {
       nombre: json['nombre'] ?? 'Sin nombre',
       descripcion: json['descripcion'],
       logoUrl: json['logo_url'],
-      activo: json['activo'] ?? true, // CORREGIDO: BD usa 'activo'
+      activo: json['activo'] ?? true, // BD usa 'activo' (boolean)
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : DateTime.now(),
     );
   }
@@ -35,7 +35,7 @@ class Marca extends Equatable {
       'nombre': nombre,
       'descripcion': descripcion,
       'logo_url': logoUrl,
-      'activo': activo,
+      'activo': activo, // BD usa 'activo'
     };
   }
 
@@ -83,27 +83,30 @@ class Categoria extends Equatable {
 }
 
 /// Modelo para Material
-class Material extends Equatable {
+class MaterialModel extends Equatable {
   final String id;
   final String nombre;
   final String? descripcion;
+  final String? codigo;
   final bool activo;
   final DateTime createdAt;
 
-  const Material({
+  const MaterialModel({
     required this.id,
     required this.nombre,
     this.descripcion,
+    this.codigo,
     this.activo = true,
     required this.createdAt,
   });
 
-  factory Material.fromJson(Map<String, dynamic> json) {
-    return Material(
+  factory MaterialModel.fromJson(Map<String, dynamic> json) {
+    return MaterialModel(
       id: json['id'] ?? '',
       nombre: json['nombre'] ?? 'Sin nombre',
       descripcion: json['descripcion'],
-      activo: json['activo'] ?? true, // ⚠️ CORREGIDO: Usar 'activa' como BD
+      codigo: json['codigo'],
+      activo: json['activo'] ?? true,
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : DateTime.now(),
     );
   }
@@ -113,12 +116,13 @@ class Material extends Equatable {
       'id': id,
       'nombre': nombre,
       'descripcion': descripcion,
+      'codigo': codigo,
       'activo': activo,
     };
   }
 
   @override
-  List<Object?> get props => [id, nombre, descripcion, activo];
+  List<Object?> get props => [id, nombre, descripcion, codigo, activo];
 }
 
 /// Enum para tipo de talla
@@ -129,14 +133,16 @@ class ColorData extends Equatable {
   final String id;
   final String nombre;
   final String hexColor;
-  final bool activo;
+  final String? codigoAbrev;
+  final bool activo; // Cambiado a 'activo' para coincidir con BD
   final DateTime createdAt;
 
   const ColorData({
     required this.id,
     required this.nombre,
     required this.hexColor,
-    this.activo = true,
+    this.codigoAbrev,
+    this.activo = true, // Cambiado a 'activo'
     required this.createdAt,
   });
 
@@ -145,7 +151,8 @@ class ColorData extends Equatable {
       id: json['id'] ?? '',
       nombre: json['nombre'] ?? 'Sin nombre',
       hexColor: json['hex_color'] ?? json['codigo_hex'] ?? '#000000',
-      activo: json['activo'] ?? true,
+      codigoAbrev: json['codigo_abrev'],
+      activo: json['activo'] ?? true, // BD y model usan 'activo'
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : DateTime.now(),
     );
   }
@@ -154,27 +161,34 @@ class ColorData extends Equatable {
     return {
       'id': id,
       'nombre': nombre,
-      'hex_color': hexColor,
-      'activo': activo,
+      'codigo_hex': hexColor, // BD usa 'codigo_hex' como campo principal
+      'codigo_abrev': codigoAbrev,
+      'activo': activo, // BD y model usan 'activo'
     };
   }
 
   @override
-  List<Object?> get props => [id, nombre, hexColor, activo];
+  List<Object?> get props => [id, nombre, hexColor, codigoAbrev, activo];
 }
 
 /// Modelo para Talla
 class Talla extends Equatable {
   final String id;
+  final String codigo;
   final String valor;
-  final TipoTalla tipo;
+  final String? nombre;
+  final String tipo;
+  final int? ordenDisplay;
   final bool activo;
   final DateTime createdAt;
 
   const Talla({
     required this.id,
+    required this.codigo,
     required this.valor,
+    this.nombre,
     required this.tipo,
+    this.ordenDisplay,
     this.activo = true,
     required this.createdAt,
   });
@@ -182,8 +196,11 @@ class Talla extends Equatable {
   factory Talla.fromJson(Map<String, dynamic> json) {
     return Talla(
       id: json['id'] ?? '',
+      codigo: json['codigo'] ?? json['valor'] ?? 'S/T',
       valor: json['valor'] ?? json['codigo'] ?? 'S/T',
-      tipo: json['tipo'] == 'RANGO' ? TipoTalla.rango : TipoTalla.unica, // ⚠️ INDIVIDUAL también se mapea a unica
+      nombre: json['nombre'],
+      tipo: json['tipo'] ?? 'ROPA',
+      ordenDisplay: json['orden_display'],
       activo: json['activo'] ?? true,
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : DateTime.now(),
     );
@@ -192,8 +209,11 @@ class Talla extends Equatable {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'codigo': codigo,
       'valor': valor,
-      'tipo': tipo == TipoTalla.rango ? 'RANGO' : 'UNICA',
+      'nombre': nombre,
+      'tipo': tipo,
+      'orden_display': ordenDisplay,
       'activo': activo,
     };
   }
@@ -201,7 +221,7 @@ class Talla extends Equatable {
   String get displayName => valor;
 
   @override
-  List<Object?> get props => [id, valor, tipo, activo];
+  List<Object?> get props => [id, codigo, valor, nombre, tipo, ordenDisplay, activo];
 }
 
 /// Modelo para Producto Master
@@ -220,7 +240,7 @@ class ProductoMaster extends Equatable {
   final Marca? marca;
   final Categoria? categoria;
   final Talla? talla;
-  final Material? material; // Nueva relación con material
+  final MaterialModel? material; // Nueva relación con material
   final List<Articulo>? articulos;
 
   const ProductoMaster({
@@ -254,7 +274,7 @@ class ProductoMaster extends Equatable {
       marca: json['marcas'] != null ? Marca.fromJson(json['marcas']) : null,
       categoria: json['categorias'] != null ? Categoria.fromJson(json['categorias']) : null,
       talla: json['tallas'] != null ? Talla.fromJson(json['tallas']) : null,
-      material: json['materiales'] != null ? Material.fromJson(json['materiales']) : null,
+      material: json['materiales'] != null ? MaterialModel.fromJson(json['materiales']) : null,
       articulos: json['articulos'] != null
           ? (json['articulos'] as List).map((e) => Articulo.fromJson(e)).toList()
           : null,

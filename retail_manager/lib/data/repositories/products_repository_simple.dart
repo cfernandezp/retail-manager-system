@@ -8,21 +8,20 @@ class ProductsRepository {
   Future<List<Marca>> getMarcas() async {
     try {
       print('🔄 [REPO] Ejecutando query marcas...');
-      print('   Query: SELECT * FROM marcas WHERE activo = true ORDER BY nombre');
+      print('   Query: SELECT * FROM marcas ORDER BY nombre');
 
       final response = await _client
           .from('marcas')
           .select('*')
-          .eq('activo', true) // RLS deshabilitado - campo confirmado
           .order('nombre');
-      
+
       print('✅ [REPO] Respuesta raw marcas: $response');
       print('   Tipo: ${response.runtimeType}, Longitud: ${response.length}');
-      
+
       final marcas = (response as List).map((json) => Marca.fromJson(json)).toList();
       print('✅ [REPO] Marcas parseadas: ${marcas.length}');
       return marcas;
-      
+
     } catch (e, stackTrace) {
       print('❌ [REPO] ERROR getMarcas: $e');
       print('📜 [REPO] Stack trace: $stackTrace');
@@ -45,11 +44,39 @@ class ProductsRepository {
     }
   }
 
+  Future<Marca> updateMarca(String marcaId, Map<String, dynamic> marcaData) async {
+    try {
+      marcaData['updated_at'] = DateTime.now().toIso8601String();
+
+      final response = await _client
+          .from('marcas')
+          .update(marcaData)
+          .eq('id', marcaId)
+          .select()
+          .single();
+
+      return Marca.fromJson(response);
+    } catch (e) {
+      throw Exception('Error al actualizar marca: $e');
+    }
+  }
+
+  Future<void> deleteMarca(String marcaId) async {
+    try {
+      await _client
+          .from('marcas')
+          .delete()
+          .eq('id', marcaId);
+    } catch (e) {
+      throw Exception('Error al eliminar marca: $e');
+    }
+  }
+
   // ================== CATEGORIAS ==================
   Future<List<Categoria>> getCategorias() async {
     try {
       print('🔄 [REPO] Ejecutando query categorias...');
-      print('   Query: SELECT * FROM categorias WHERE activa = true ORDER BY nombre');
+      print('   Query: SELECT * FROM categorias WHERE activo = true ORDER BY nombre');
 
       final response = await _client
           .from('categorias')
@@ -86,8 +113,36 @@ class ProductsRepository {
     }
   }
 
+  Future<Categoria> updateCategoria(String categoriaId, Map<String, dynamic> categoriaData) async {
+    try {
+      categoriaData['updated_at'] = DateTime.now().toIso8601String();
+
+      final response = await _client
+          .from('categorias')
+          .update(categoriaData)
+          .eq('id', categoriaId)
+          .select()
+          .single();
+
+      return Categoria.fromJson(response);
+    } catch (e) {
+      throw Exception('Error al actualizar categoría: $e');
+    }
+  }
+
+  Future<void> deleteCategoria(String categoriaId) async {
+    try {
+      await _client
+          .from('categorias')
+          .delete()
+          .eq('id', categoriaId);
+    } catch (e) {
+      throw Exception('Error al eliminar categoría: $e');
+    }
+  }
+
   // ================== MATERIALES ==================
-  Future<List<Material>> getMateriales() async {
+  Future<List<MaterialModel>> getMateriales() async {
     try {
       print('🔄 [REPO] Ejecutando query materiales...');
       print('   Query: SELECT * FROM materiales WHERE activo = true ORDER BY nombre');
@@ -101,7 +156,7 @@ class ProductsRepository {
       print('✅ [REPO] Respuesta raw materiales: $response');
       print('   Tipo: ${response.runtimeType}, Longitud: ${response.length}');
       
-      final materiales = (response as List).map((json) => Material.fromJson(json)).toList();
+      final materiales = (response as List).map((json) => MaterialModel.fromJson(json)).toList();
       print('✅ [REPO] Materiales parseados: ${materiales.length}');
       return materiales;
       
@@ -113,18 +168,46 @@ class ProductsRepository {
     }
   }
 
-  Future<Material> createMaterial(Map<String, dynamic> materialData) async {
+  Future<MaterialModel> createMaterial(Map<String, dynamic> materialData) async {
     try {
-      materialData['activo'] = materialData['activa'] ?? materialData['activo'] ?? true;
+      materialData['activo'] = materialData['activo'] ?? true;
       final response = await _client
           .from('materiales')
           .insert(materialData)
           .select()
           .single();
 
-      return Material.fromJson(response);
+      return MaterialModel.fromJson(response);
     } catch (e) {
       throw Exception('Error al crear material: $e');
+    }
+  }
+
+  Future<MaterialModel> updateMaterial(String materialId, Map<String, dynamic> materialData) async {
+    try {
+      materialData['updated_at'] = DateTime.now().toIso8601String();
+
+      final response = await _client
+          .from('materiales')
+          .update(materialData)
+          .eq('id', materialId)
+          .select()
+          .single();
+
+      return MaterialModel.fromJson(response);
+    } catch (e) {
+      throw Exception('Error al actualizar material: $e');
+    }
+  }
+
+  Future<void> deleteMaterial(String materialId) async {
+    try {
+      await _client
+          .from('materiales')
+          .delete()
+          .eq('id', materialId);
+    } catch (e) {
+      throw Exception('Error al eliminar material: $e');
     }
   }
 
@@ -132,7 +215,7 @@ class ProductsRepository {
   Future<List<Talla>> getTallas() async {
     try {
       print('🔄 [REPO] Ejecutando query tallas...');
-      print('   Query: SELECT * FROM tallas WHERE activa = true ORDER BY codigo');
+      print('   Query: SELECT * FROM tallas WHERE activo = true ORDER BY codigo');
 
       final response = await _client
           .from('tallas')
@@ -164,11 +247,11 @@ class ProductsRepository {
         'valor': tallaData['valor'],
         'tipo': tallaData['tipo'],
         'orden_display': tallaData['orden_display'] ?? 0,
-        'activo': tallaData['activo'] ?? tallaData['activa'] ?? true, // BD usa 'activo'
+        'activo': tallaData['activo'] ?? true, // BD usa 'activo'
       };
-      
+
       print('🔄 [Repository] Creando talla con datos: $correctedData');
-      
+
       final response = await _client
           .from('tallas')
           .insert(correctedData)
@@ -183,25 +266,52 @@ class ProductsRepository {
     }
   }
 
+  Future<Talla> updateTalla(String tallaId, Map<String, dynamic> tallaData) async {
+    try {
+      tallaData['updated_at'] = DateTime.now().toIso8601String();
+
+      final response = await _client
+          .from('tallas')
+          .update(tallaData)
+          .eq('id', tallaId)
+          .select()
+          .single();
+
+      return Talla.fromJson(response);
+    } catch (e) {
+      throw Exception('Error al actualizar talla: $e');
+    }
+  }
+
+  Future<void> deleteTalla(String tallaId) async {
+    try {
+      await _client
+          .from('tallas')
+          .delete()
+          .eq('id', tallaId);
+    } catch (e) {
+      throw Exception('Error al eliminar talla: $e');
+    }
+  }
+
   // ================== COLORES ==================
   Future<List<ColorData>> getColores() async {
     try {
       print('🔄 [REPO] Ejecutando query colores...');
-      print('   Query: SELECT * FROM colores WHERE activo = true ORDER BY nombre');
+      print('   Query: SELECT * FROM colores ORDER BY nombre');
 
       final response = await _client
           .from('colores')
           .select('*')
-          .eq('activo', true) // RLS deshabilitado - campo confirmado
           .order('nombre');
-      
+
       print('✅ [REPO] Respuesta raw colores: $response');
       print('   Tipo: ${response.runtimeType}, Longitud: ${response.length}');
-      
+
       final colores = (response as List).map((json) => ColorData.fromJson(json)).toList();
       print('✅ [REPO] Colores parseados: ${colores.length}');
       return colores;
-      
+
     } catch (e, stackTrace) {
       print('❌ [REPO] ERROR getColores: $e');
       print('📜 [REPO] Stack trace: $stackTrace');
@@ -221,6 +331,35 @@ class ProductsRepository {
       return ColorData.fromJson(response);
     } catch (e) {
       throw Exception('Error al crear color: $e');
+    }
+  }
+
+  Future<ColorData> updateColor(String colorId, Map<String, dynamic> colorData) async {
+    try {
+      // Agregar timestamp de actualización
+      colorData['updated_at'] = DateTime.now().toIso8601String();
+
+      final response = await _client
+          .from('colores')
+          .update(colorData)
+          .eq('id', colorId)
+          .select()
+          .single();
+
+      return ColorData.fromJson(response);
+    } catch (e) {
+      throw Exception('Error al actualizar color: $e');
+    }
+  }
+
+  Future<void> deleteColor(String colorId) async {
+    try {
+      await _client
+          .from('colores')
+          .delete()
+          .eq('id', colorId);
+    } catch (e) {
+      throw Exception('Error al eliminar color: $e');
     }
   }
 
@@ -426,27 +565,78 @@ class ProductsRepository {
   }) async {
     try {
       print('🔄 [Repository] Obteniendo catálogo completo...');
-      // Simplificar usando productos directos por ahora
+
+      // Obtener productos básicos
       final productos = await getProductos(filters: filters);
       print('✅ [Repository] Productos obtenidos: ${productos.length}');
-      
-      // Convertir productos a catálogo completo
-      final catalogoItems = productos.map((producto) => CatalogoCompleto(
-        productoId: producto.id,
-        productoNombre: producto.nombre,
-        marcaNombre: producto.marca?.nombre ?? 'Sin marca',
-        categoriaNombre: producto.categoria?.nombre ?? 'Sin categoría',
-        tallaValor: producto.talla?.valor ?? 'Sin talla',
-        precioSugerido: producto.precioSugerido,
-        totalArticulos: 0, // Simplificado por ahora
-        stockTotal: 0,     // Simplificado por ahora
-        precioMinimo: producto.precioSugerido,
-        precioMaximo: producto.precioSugerido,
-        coloresDisponibles: [],
-        tiendasConStock: 0,
-      )).toList();
 
-      print('✅ [Repository] Catálogo convertido: ${catalogoItems.length} items');
+      // Convertir productos a catálogo completo con datos agregados reales
+      final catalogoItems = <CatalogoCompleto>[];
+
+      for (final producto in productos) {
+        // Obtener artículos del producto
+        final articulos = await getArticulosByProductoId(producto.id);
+
+        // Calcular datos agregados
+        int stockTotal = 0;
+        double precioMinimo = producto.precioSugerido;
+        double precioMaximo = producto.precioSugerido;
+        Set<String> coloresDisponibles = {};
+        Set<String> tiendasConStock = {};
+
+        for (final articulo in articulos) {
+          // Obtener inventario del artículo
+          final inventarios = await _getInventarioByArticuloId(articulo.id);
+
+          for (final inventario in inventarios) {
+            final stockActual = (inventario['stock_actual'] ?? 0) as int;
+            stockTotal += stockActual;
+
+            if (stockActual > 0) {
+              tiendasConStock.add(inventario['tienda_id']);
+            }
+
+            final precioVenta = (inventario['precio_venta'] ?? 0.0).toDouble();
+            if (precioVenta > 0) {
+              if (precioVenta < precioMinimo) precioMinimo = precioVenta;
+              if (precioVenta > precioMaximo) precioMaximo = precioVenta;
+            }
+          }
+
+          // Obtener nombre del color
+          try {
+            if (articulo.colorId?.isNotEmpty == true) {
+              final colorInfo = await _client
+                  .from('colores')
+                  .select('nombre')
+                  .eq('id', articulo.colorId!)
+                  .single();
+              coloresDisponibles.add(colorInfo['nombre'] ?? 'Sin color');
+            } else {
+              coloresDisponibles.add('Sin color');
+            }
+          } catch (e) {
+            coloresDisponibles.add('Sin color');
+          }
+        }
+
+        catalogoItems.add(CatalogoCompleto(
+          productoId: producto.id,
+          productoNombre: producto.nombre,
+          marcaNombre: producto.marca?.nombre ?? 'Sin marca',
+          categoriaNombre: producto.categoria?.nombre ?? 'Sin categoría',
+          tallaValor: producto.talla?.valor ?? 'Sin talla',
+          precioSugerido: producto.precioSugerido,
+          totalArticulos: articulos.length,
+          stockTotal: stockTotal,
+          precioMinimo: precioMinimo,
+          precioMaximo: precioMaximo,
+          coloresDisponibles: coloresDisponibles.toList(),
+          tiendasConStock: tiendasConStock.length,
+        ));
+      }
+
+      print('✅ [Repository] Catálogo convertido: ${catalogoItems.length} items con datos agregados');
 
       final paginationParams = pagination ?? const PaginationParams();
       return PaginatedResult<CatalogoCompleto>(
@@ -461,15 +651,47 @@ class ProductsRepository {
     }
   }
 
+  /// Método auxiliar para obtener inventario por artículo ID
+  Future<List<Map<String, dynamic>>> _getInventarioByArticuloId(String articuloId) async {
+    try {
+      final response = await _client
+          .from('inventario_tienda')
+          .select('stock_actual, precio_venta, tienda_id')
+          .eq('articulo_id', articuloId)
+          .eq('activo', true);
+
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      print('⚠️ [Repository] Error al obtener inventario para artículo $articuloId: $e');
+      return [];
+    }
+  }
+
   Future<List<Articulo>> createArticulos(String productoId, List<String> colores) async {
     try {
-      final articulosData = colores.map((color) => {
-        'producto_master_id': productoId,
-        'color_id': color,
-        'sku_auto': 'SKU-${DateTime.now().millisecondsSinceEpoch}',
-        'precio_sugerido': 0.0, // Será actualizado después
-        'activo': true,
-      }).toList();
+      final articulosData = <Map<String, dynamic>>[];
+
+      for (final colorId in colores) {
+        // Obtener información del color para generar SKU único
+        final colorInfo = await _client
+            .from('colores')
+            .select('codigo_abrev')
+            .eq('id', colorId)
+            .single();
+
+        final codigoColor = colorInfo['codigo_abrev'] ?? colorId.substring(0, 3).toUpperCase();
+
+        // SKU único usando: timestamp + código del color
+        final uniqueSku = 'SKU-${DateTime.now().millisecondsSinceEpoch}-$codigoColor';
+
+        articulosData.add({
+          'producto_master_id': productoId,
+          'color_id': colorId,
+          'sku_auto': uniqueSku,
+          'precio_sugerido': 0.0, // Será actualizado después
+          'activo': true,
+        });
+      }
 
       final response = await _client
           .from('articulos')

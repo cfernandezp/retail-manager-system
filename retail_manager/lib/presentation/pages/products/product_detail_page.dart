@@ -317,7 +317,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
         ),
         const SizedBox(height: 12),
         _buildInfoRow('Talla Base', product.talla?.valor ?? 'Sin talla'),
-        _buildInfoRow('Tipo de Talla', product.talla?.tipo.name.toUpperCase() ?? '-'),
+        _buildInfoRow('Tipo de Talla', product.talla?.tipo.toUpperCase() ?? '-'),
         _buildInfoRow('Fecha de Creación',
           DateFormat('dd/MM/yyyy HH:mm').format(product.createdAt)),
         _buildInfoRow('Estado', product.activo ? 'ACTIVO' : 'INACTIVO'),

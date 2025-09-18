@@ -231,40 +231,85 @@ class ProductsBloc extends Bloc<ProductsEvent, ProductsState> {
     Emitter<ProductsState> emit,
   ) async {
     try {
+      print('');
+      print('🏭 [PRODUCTS_BLOC] ==================== CREAR PRODUCTO ====================');
+      print('📋 Datos recibidos:');
+      print('   • productData: ${event.productData}');
+      print('   • colores: ${event.colores} (${event.colores.length} colores)');
+      print('   • inventarioInicial: ${event.inventarioInicial.length} entradas');
+      print('');
+
       emit(const ProductsCreating());
 
+      print('🔧 [PASO_1] Creando producto master...');
       final producto = await _repository.createProductoMaster(event.productData);
+      print('✅ Producto master creado con ID: ${producto.id}');
+      print('   Nombre: ${producto.nombre}');
+      print('');
 
       // Si se especificaron colores, crear los artículos
       if (event.colores.isNotEmpty) {
-        await _repository.createArticulos(producto.id, event.colores);
+        print('🎨 [PASO_2] Creando artículos para ${event.colores.length} colores...');
+        print('   Colores IDs: ${event.colores}');
+
+        final articulosCreados = await _repository.createArticulos(producto.id, event.colores);
+
+        print('✅ Artículos creados: ${articulosCreados.length}');
+        for (int i = 0; i < articulosCreados.length; i++) {
+          final articulo = articulosCreados[i];
+          print('   ${i+1}. ID: ${articulo.id} | SKU: ${articulo.skuAuto} | Color ID: ${articulo.colorId}');
+        }
+        print('');
+      } else {
+        print('⚠️ [PASO_2] No se especificaron colores - NO se crearán artículos');
       }
 
       // Configurar inventario inicial si se especificó
       if (event.inventarioInicial.isNotEmpty) {
+        print('🏪 [PASO_3] Configurando inventario inicial...');
         final articulos = await _repository.getArticulosByProductoId(producto.id);
-        
+        print('   Artículos encontrados para inventario: ${articulos.length}');
+
         for (final articulo in articulos) {
+          print('   Configurando inventario para artículo: ${articulo.skuAuto}');
+
           for (final inventario in event.inventarioInicial) {
             if (inventario['tienda_id'] != null) {
+              final stockInicial = inventario['stock_inicial'] ?? 0;
+              final precioLocal = inventario['precio_local'] ?? articulo.precioSugerido;
+
+              print('     • Tienda ID: ${inventario['tienda_id']}');
+              print('       Stock inicial: $stockInicial');
+              print('       Precio local: $precioLocal');
+
               await _repository.updateInventarioTienda(
                 articulo.id,
                 inventario['tienda_id'],
                 {
-                  'stock_actual': inventario['stock_inicial'] ?? 0,
-                  'precio_venta': inventario['precio_local'] ?? articulo.precioSugerido, // CORREGIDO: usar campo correcto de BD
+                  'stock_actual': stockInicial,
+                  'precio_venta': precioLocal,
                 },
               );
+              print('       ✅ Inventario configurado');
             }
           }
         }
+        print('✅ Inventario inicial configurado para todos los artículos');
+        print('');
+      } else {
+        print('⚠️ [PASO_3] No se especificó inventario inicial');
       }
+
+      print('🎉 [PRODUCTS_BLOC] ¡PRODUCTO CREADO EXITOSAMENTE!');
+      print('==================== FIN CREAR PRODUCTO ====================');
+      print('');
 
       emit(ProductCreated(producto));
 
       // Recargar la lista
       add(RefreshProducts());
     } catch (e) {
+      print('❌ [PRODUCTS_BLOC] ERROR al crear producto: $e');
       emit(ProductsError('Error al crear producto: $e'));
     }
   }

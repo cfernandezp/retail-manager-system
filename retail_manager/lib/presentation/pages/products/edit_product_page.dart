@@ -40,7 +40,7 @@ class _EditProductPageState extends State<EditProductPage> {
   // Datos para poblar dropdowns
   List<models.Marca> _marcas = [];
   List<models.Categoria> _categorias = [];
-  List<models.Material> _materiales = [];
+  List<models.MaterialModel> _materiales = [];
 
   // Producto actual para pre-poblar
   models.ProductoMaster? _currentProduct;
