@@ -316,4 +316,209 @@ COMMENT ON FUNCTION update_stock(UUID, UUID, tipo_movimiento, INTEGER, TEXT, DEC
 COMMENT ON FUNCTION validate_talla_data() IS 'Valida consistencia de datos según tipo de talla';
 COMMENT ON FUNCTION generar_sku_articulo() IS 'Genera SKU automáticamente para artículos';
 
+-- =====================================================
+-- FUNCIONES Y TRIGGERS MÓDULO DE VENTAS
+-- =====================================================
+
+-- Función para generar número de venta automático
+CREATE OR REPLACE FUNCTION generar_numero_venta(p_tienda_id UUID)
+RETURNS VARCHAR(20) AS $$
+DECLARE
+    tienda_codigo VARCHAR(10);
+    secuencia INTEGER;
+    fecha_actual DATE := CURRENT_DATE;
+    numero_venta VARCHAR(20);
+BEGIN
+    -- Obtener código de tienda
+    SELECT COALESCE(codigo_tienda, 'TDA') INTO tienda_codigo
+    FROM tiendas
+    WHERE id = p_tienda_id;
+
+    -- Obtener siguiente secuencia del día
+    SELECT COALESCE(MAX(CAST(SUBSTRING(numero_venta FROM '[0-9]+$') AS INTEGER)), 0) + 1
+    INTO secuencia
+    FROM ventas
+    WHERE tienda_id = p_tienda_id
+    AND DATE(fecha_venta) = fecha_actual;
+
+    -- Formatear número: TDA-20250919-0001
+    numero_venta := tienda_codigo || '-' || TO_CHAR(fecha_actual, 'YYYYMMDD') || '-' || LPAD(secuencia::TEXT, 4, '0');
+
+    RETURN numero_venta;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger para generar número de venta automáticamente
+CREATE OR REPLACE FUNCTION trigger_generar_numero_venta()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.numero_venta IS NULL OR NEW.numero_venta = '' THEN
+        NEW.numero_venta := generar_numero_venta(NEW.tienda_id);
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_ventas_numero_automatico
+    BEFORE INSERT ON ventas
+    FOR EACH ROW
+    EXECUTE FUNCTION trigger_generar_numero_venta();
+
+-- Trigger para actualizar totales de venta
+CREATE OR REPLACE FUNCTION trigger_actualizar_totales_venta()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Actualizar totales de la venta cuando se modifican los detalles
+    UPDATE ventas SET
+        subtotal = (
+            SELECT COALESCE(SUM(subtotal), 0)
+            FROM detalles_venta
+            WHERE venta_id = COALESCE(NEW.venta_id, OLD.venta_id)
+        ),
+        descuento_total = (
+            SELECT COALESCE(SUM((precio_unitario_original - precio_unitario_final) * cantidad), 0)
+            FROM detalles_venta
+            WHERE venta_id = COALESCE(NEW.venta_id, OLD.venta_id)
+        ),
+        updated_at = NOW()
+    WHERE id = COALESCE(NEW.venta_id, OLD.venta_id);
+
+    -- Actualizar total = subtotal + impuestos
+    UPDATE ventas SET
+        total = subtotal + impuestos
+    WHERE id = COALESCE(NEW.venta_id, OLD.venta_id);
+
+    RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_detalles_venta_actualizar_totales
+    AFTER INSERT OR UPDATE OR DELETE ON detalles_venta
+    FOR EACH ROW
+    EXECUTE FUNCTION trigger_actualizar_totales_venta();
+
+-- Función para calcular descuento automático por cantidad
+CREATE OR REPLACE FUNCTION calcular_descuento_por_cantidad(
+    p_articulo_id UUID,
+    p_cantidad INTEGER,
+    p_precio_unitario DECIMAL(10,2)
+) RETURNS JSON AS $$
+DECLARE
+    estrategia_record RECORD;
+    rango_record JSON;
+    descuento_porcentaje DECIMAL(5,2) := 0;
+    precio_final DECIMAL(10,2);
+    estrategia_id UUID := NULL;
+    resultado JSON;
+BEGIN
+    -- Buscar estrategia aplicable
+    FOR estrategia_record IN
+        SELECT ed.*, pm.categoria_id, pm.marca_id
+        FROM estrategias_descuento ed
+        JOIN articulos a ON a.id = p_articulo_id
+        JOIN productos_master pm ON pm.id = a.producto_master_id
+        WHERE ed.activa = true
+        AND (ed.fecha_inicio IS NULL OR ed.fecha_inicio <= CURRENT_DATE)
+        AND (ed.fecha_fin IS NULL OR ed.fecha_fin >= CURRENT_DATE)
+        AND (
+            ed.producto_id = pm.id OR
+            ed.categoria_id = pm.categoria_id OR
+            ed.marca_id = pm.marca_id OR
+            (ed.producto_id IS NULL AND ed.categoria_id IS NULL AND ed.marca_id IS NULL)
+        )
+        ORDER BY
+            CASE WHEN ed.producto_id IS NOT NULL THEN 1
+                 WHEN ed.categoria_id IS NOT NULL THEN 2
+                 WHEN ed.marca_id IS NOT NULL THEN 3
+                 ELSE 4 END
+        LIMIT 1
+    LOOP
+        -- Buscar rango de cantidad aplicable
+        FOR rango_record IN
+            SELECT * FROM json_array_elements(estrategia_record.rangos_cantidad)
+        LOOP
+            IF p_cantidad >= (rango_record->>'cantidad_min')::INTEGER AND
+               (rango_record->>'cantidad_max' IS NULL OR
+                p_cantidad <= (rango_record->>'cantidad_max')::INTEGER) THEN
+
+                descuento_porcentaje := (rango_record->>'descuento_porcentaje')::DECIMAL(5,2);
+                estrategia_id := estrategia_record.id;
+                EXIT;
+            END IF;
+        END LOOP;
+
+        EXIT WHEN estrategia_id IS NOT NULL;
+    END LOOP;
+
+    -- Calcular precio final
+    precio_final := p_precio_unitario * (1 - descuento_porcentaje / 100);
+
+    -- Construir resultado
+    resultado := json_build_object(
+        'estrategia_id', estrategia_id,
+        'descuento_porcentaje', descuento_porcentaje,
+        'precio_original', p_precio_unitario,
+        'precio_final', precio_final,
+        'ahorro_total', (p_precio_unitario - precio_final) * p_cantidad,
+        'tiene_descuento', descuento_porcentaje > 0
+    );
+
+    RETURN resultado;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Función para verificar permisos de descuento
+CREATE OR REPLACE FUNCTION verificar_permiso_descuento(
+    p_usuario_id UUID,
+    p_descuento_porcentaje DECIMAL(5,2),
+    p_categoria_id UUID DEFAULT NULL
+) RETURNS JSON AS $$
+DECLARE
+    user_role VARCHAR(50);
+    permiso_record RECORD;
+    puede_aplicar BOOLEAN := false;
+    requiere_aprobacion BOOLEAN := true;
+    resultado JSON;
+BEGIN
+    -- Obtener rol del usuario
+    SELECT rol INTO user_role
+    FROM usuarios
+    WHERE id = p_usuario_id;
+
+    IF user_role IS NULL THEN
+        user_role := 'vendedor_junior'; -- Default
+    END IF;
+
+    -- Buscar permisos aplicables
+    SELECT * INTO permiso_record
+    FROM permisos_descuento
+    WHERE rol_usuario = user_role
+    AND activo = true
+    AND (categoria_id IS NULL OR categoria_id = p_categoria_id)
+    ORDER BY CASE WHEN categoria_id IS NOT NULL THEN 1 ELSE 2 END
+    LIMIT 1;
+
+    IF FOUND THEN
+        puede_aplicar := p_descuento_porcentaje <= permiso_record.descuento_maximo_porcentaje;
+        requiere_aprobacion := permiso_record.requiere_aprobacion OR NOT puede_aplicar;
+    END IF;
+
+    resultado := json_build_object(
+        'puede_aplicar', puede_aplicar,
+        'requiere_aprobacion', requiere_aprobacion,
+        'descuento_maximo', COALESCE(permiso_record.descuento_maximo_porcentaje, 0),
+        'rol_usuario', user_role
+    );
+
+    RETURN resultado;
+END;
+$$ LANGUAGE plpgsql;
+
+-- COMENTARIOS FUNCIONES MÓDULO VENTAS
+COMMENT ON FUNCTION generar_numero_venta(UUID) IS 'Genera número de venta único por tienda y fecha';
+COMMENT ON FUNCTION trigger_generar_numero_venta() IS 'Trigger para generar número de venta automáticamente';
+COMMENT ON FUNCTION trigger_actualizar_totales_venta() IS 'Trigger para actualizar totales cuando cambian detalles';
+COMMENT ON FUNCTION calcular_descuento_por_cantidad(UUID, INTEGER, DECIMAL) IS 'Calcula descuento automático basado en estrategias';
+COMMENT ON FUNCTION verificar_permiso_descuento(UUID, DECIMAL, UUID) IS 'Verifica si usuario puede aplicar descuento';
+
 -- Fin de funciones y triggers limpios

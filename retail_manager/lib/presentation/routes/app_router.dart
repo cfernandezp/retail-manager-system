@@ -17,6 +17,7 @@ import '../pages/products/materiales_page.dart';
 import '../pages/products/tallas_page.dart';
 import '../pages/inventory/inventory_page.dart';
 import '../pages/sales/sales_page.dart';
+import '../pages/sales/sales_test_page.dart';
 import '../pages/customers/customers_page.dart';
 import '../pages/reports/reports_page.dart';
 import '../pages/admin/admin_page.dart';
@@ -205,6 +206,18 @@ class AppRouter {
           pageTitle: 'Ventas',
           child: const SalesPage(),
         ),
+        routes: [
+          // Página de prueba del módulo de ventas
+          GoRoute(
+            path: 'test',
+            name: 'sales_test',
+            builder: (context, state) => AdaptiveNavigationScaffold(
+              currentRoute: '$sales/test',
+              pageTitle: 'Prueba Módulo Ventas',
+              child: const SalesTestPage(),
+            ),
+          ),
+        ],
       ),
 
       GoRoute(

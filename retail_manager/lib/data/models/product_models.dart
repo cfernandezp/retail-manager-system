@@ -134,14 +134,25 @@ class ColorData extends Equatable {
   final String nombre;
   final String hexColor;
   final String? codigoAbrev;
+  final String tipoColor; // NUEVO: 'UNICO' | 'VARIOS'
+  final List<String>? coloresComponentes; // NUEVO: IDs de colores base
+  final String? descripcionCompleta; // NUEVO
   final bool activo; // Cambiado a 'activo' para coincidir con BD
   final DateTime createdAt;
+
+  // Getters de conveniencia
+  bool get esColorUnico => tipoColor == 'UNICO';
+  bool get esColorMultiple => tipoColor == 'VARIOS';
+  int get cantidadColores => esColorUnico ? 1 : (coloresComponentes?.length ?? 0);
 
   const ColorData({
     required this.id,
     required this.nombre,
     required this.hexColor,
     this.codigoAbrev,
+    required this.tipoColor, // NUEVO - requerido
+    this.coloresComponentes, // NUEVO - opcional
+    this.descripcionCompleta, // NUEVO - opcional
     this.activo = true, // Cambiado a 'activo'
     required this.createdAt,
   });
@@ -152,6 +163,11 @@ class ColorData extends Equatable {
       nombre: json['nombre'] ?? 'Sin nombre',
       hexColor: json['hex_color'] ?? json['codigo_hex'] ?? '#000000',
       codigoAbrev: json['codigo_abrev'],
+      tipoColor: json['tipo_color'] ?? 'UNICO', // Backward compatibility
+      coloresComponentes: json['colores_componentes'] != null
+          ? List<String>.from(json['colores_componentes'])
+          : null,
+      descripcionCompleta: json['descripcion_completa'],
       activo: json['activo'] ?? true, // BD y model usan 'activo'
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : DateTime.now(),
     );
@@ -163,12 +179,18 @@ class ColorData extends Equatable {
       'nombre': nombre,
       'codigo_hex': hexColor, // BD usa 'codigo_hex' como campo principal
       'codigo_abrev': codigoAbrev,
+      'tipo_color': tipoColor,
+      'colores_componentes': coloresComponentes,
+      'descripcion_completa': descripcionCompleta,
       'activo': activo, // BD y model usan 'activo'
     };
   }
 
   @override
-  List<Object?> get props => [id, nombre, hexColor, codigoAbrev, activo];
+  List<Object?> get props => [
+    id, nombre, hexColor, codigoAbrev, tipoColor,
+    coloresComponentes, descripcionCompleta, activo
+  ];
 }
 
 /// Modelo para Talla
@@ -661,4 +683,450 @@ class PaginatedResult<T> extends Equatable {
 
   @override
   List<Object?> get props => [data, totalCount, currentPage, pageSize];
+}
+
+// =====================================================
+// MODELOS DEL MÓDULO DE VENTAS
+// =====================================================
+
+/// Modelo para Estrategia de Descuento
+class EstrategiaDescuento extends Equatable {
+  final String id;
+  final String nombre;
+  final String? descripcion;
+  final String? categoriaId;
+  final String? tiendaId;
+  final List<RangoDescuento> rangosDescuento;
+  final bool activa;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
+
+  // Relaciones
+  final Categoria? categoria;
+  final Tienda? tienda;
+
+  const EstrategiaDescuento({
+    required this.id,
+    required this.nombre,
+    this.descripcion,
+    this.categoriaId,
+    this.tiendaId,
+    required this.rangosDescuento,
+    this.activa = true,
+    required this.createdAt,
+    this.updatedAt,
+    this.categoria,
+    this.tienda,
+  });
+
+  factory EstrategiaDescuento.fromJson(Map<String, dynamic> json) {
+    List<RangoDescuento> rangos = [];
+    if (json['rangos_cantidad'] != null) {
+      if (json['rangos_cantidad'] is List) {
+        rangos = (json['rangos_cantidad'] as List)
+            .map((r) => RangoDescuento.fromJson(r))
+            .toList();
+      }
+    }
+
+    return EstrategiaDescuento(
+      id: json['id'] ?? '',
+      nombre: json['nombre'] ?? '',
+      descripcion: json['descripcion'],
+      categoriaId: json['categoria_id'],
+      tiendaId: json['tienda_id'],
+      rangosDescuento: rangos,
+      activa: json['activa'] ?? true,
+      createdAt: DateTime.parse(json['created_at']),
+      updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : null,
+      categoria: json['categorias'] != null ? Categoria.fromJson(json['categorias']) : null,
+      tienda: json['tiendas'] != null ? Tienda.fromJson(json['tiendas']) : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'nombre': nombre,
+      'descripcion': descripcion,
+      'categoria_id': categoriaId,
+      'tienda_id': tiendaId,
+      'rangos_cantidad': rangosDescuento.map((r) => r.toJson()).toList(),
+      'activa': activa,
+    };
+  }
+
+  /// Calcula el descuento para una cantidad específica
+  double calcularDescuento(int cantidad) {
+    for (final rango in rangosDescuento) {
+      if (cantidad >= rango.cantidadMin && cantidad <= rango.cantidadMax) {
+        return rango.descuentoPorcentaje;
+      }
+    }
+    return 0.0;
+  }
+
+  @override
+  List<Object?> get props => [
+    id, nombre, descripcion, categoriaId, tiendaId,
+    rangosDescuento, activa, createdAt
+  ];
+}
+
+/// Modelo para Rango de Descuento
+class RangoDescuento extends Equatable {
+  final int cantidadMin;
+  final int cantidadMax;
+  final double descuentoPorcentaje;
+
+  const RangoDescuento({
+    required this.cantidadMin,
+    required this.cantidadMax,
+    required this.descuentoPorcentaje,
+  });
+
+  factory RangoDescuento.fromJson(Map<String, dynamic> json) {
+    return RangoDescuento(
+      cantidadMin: json['cantidad_min'] ?? 0,
+      cantidadMax: json['cantidad_max'] ?? 0,
+      descuentoPorcentaje: (json['descuento_porcentaje'] ?? 0.0).toDouble(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'cantidad_min': cantidadMin,
+      'cantidad_max': cantidadMax,
+      'descuento_porcentaje': descuentoPorcentaje,
+    };
+  }
+
+  @override
+  List<Object?> get props => [cantidadMin, cantidadMax, descuentoPorcentaje];
+}
+
+/// Modelo para Permisos de Descuento
+class PermisoDescuento extends Equatable {
+  final String id;
+  final String rolUsuario;
+  final double descuentoMaximoPorcentaje;
+  final bool requiereAprobacion;
+  final bool puedeAprobarDescuentos;
+  final bool activo;
+  final DateTime createdAt;
+
+  const PermisoDescuento({
+    required this.id,
+    required this.rolUsuario,
+    required this.descuentoMaximoPorcentaje,
+    required this.requiereAprobacion,
+    required this.puedeAprobarDescuentos,
+    this.activo = true,
+    required this.createdAt,
+  });
+
+  factory PermisoDescuento.fromJson(Map<String, dynamic> json) {
+    return PermisoDescuento(
+      id: json['id'] ?? '',
+      rolUsuario: json['rol_usuario'] ?? '',
+      descuentoMaximoPorcentaje: (json['descuento_maximo_porcentaje'] ?? 0.0).toDouble(),
+      requiereAprobacion: json['requiere_aprobacion'] ?? false,
+      puedeAprobarDescuentos: json['puede_aprobar_descuentos'] ?? false,
+      activo: json['activo'] ?? true,
+      createdAt: DateTime.parse(json['created_at']),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'rol_usuario': rolUsuario,
+      'descuento_maximo_porcentaje': descuentoMaximoPorcentaje,
+      'requiere_aprobacion': requiereAprobacion,
+      'puede_aprobar_descuentos': puedeAprobarDescuentos,
+      'activo': activo,
+    };
+  }
+
+  @override
+  List<Object?> get props => [
+    id, rolUsuario, descuentoMaximoPorcentaje,
+    requiereAprobacion, puedeAprobarDescuentos, activo
+  ];
+}
+
+/// Enum para estado de venta
+enum EstadoVenta { pendiente, completada, cancelada, devuelta }
+
+/// Modelo para Venta
+class Venta extends Equatable {
+  final String id;
+  final String numeroVenta;
+  final String tiendaId;
+  final String vendedorId;
+  final String? clienteId;
+  final double subtotal;
+  final double descuentoTotal;
+  final double impuestos;
+  final double montoTotal;
+  final EstadoVenta estado;
+  final DateTime fechaVenta;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
+
+  // Relaciones
+  final Tienda? tienda;
+  final List<DetalleVenta>? detalles;
+
+  const Venta({
+    required this.id,
+    required this.numeroVenta,
+    required this.tiendaId,
+    required this.vendedorId,
+    this.clienteId,
+    required this.subtotal,
+    required this.descuentoTotal,
+    required this.impuestos,
+    required this.montoTotal,
+    required this.estado,
+    required this.fechaVenta,
+    required this.createdAt,
+    this.updatedAt,
+    this.tienda,
+    this.detalles,
+  });
+
+  factory Venta.fromJson(Map<String, dynamic> json) {
+    EstadoVenta estado;
+    switch (json['estado']?.toString().toLowerCase()) {
+      case 'completada':
+        estado = EstadoVenta.completada;
+        break;
+      case 'cancelada':
+        estado = EstadoVenta.cancelada;
+        break;
+      case 'devuelta':
+        estado = EstadoVenta.devuelta;
+        break;
+      default:
+        estado = EstadoVenta.pendiente;
+    }
+
+    return Venta(
+      id: json['id'] ?? '',
+      numeroVenta: json['numero_venta'] ?? '',
+      tiendaId: json['tienda_id'] ?? '',
+      vendedorId: json['vendedor_id'] ?? '',
+      clienteId: json['cliente_id'],
+      subtotal: (json['subtotal'] ?? 0.0).toDouble(),
+      descuentoTotal: (json['descuento_total'] ?? 0.0).toDouble(),
+      impuestos: (json['impuestos'] ?? 0.0).toDouble(),
+      montoTotal: (json['monto_total'] ?? 0.0).toDouble(),
+      estado: estado,
+      fechaVenta: DateTime.parse(json['fecha_venta']),
+      createdAt: DateTime.parse(json['created_at']),
+      updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : null,
+      tienda: json['tiendas'] != null ? Tienda.fromJson(json['tiendas']) : null,
+      detalles: json['detalles_venta'] != null
+          ? (json['detalles_venta'] as List)
+              .map((d) => DetalleVenta.fromJson(d))
+              .toList()
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    String estadoStr;
+    switch (estado) {
+      case EstadoVenta.completada:
+        estadoStr = 'completada';
+        break;
+      case EstadoVenta.cancelada:
+        estadoStr = 'cancelada';
+        break;
+      case EstadoVenta.devuelta:
+        estadoStr = 'devuelta';
+        break;
+      default:
+        estadoStr = 'pendiente';
+    }
+
+    return {
+      'id': id,
+      'numero_venta': numeroVenta,
+      'tienda_id': tiendaId,
+      'vendedor_id': vendedorId,
+      'cliente_id': clienteId,
+      'subtotal': subtotal,
+      'descuento_total': descuentoTotal,
+      'impuestos': impuestos,
+      'monto_total': montoTotal,
+      'estado': estadoStr,
+      'fecha_venta': fechaVenta.toIso8601String(),
+    };
+  }
+
+  @override
+  List<Object?> get props => [
+    id, numeroVenta, tiendaId, vendedorId, clienteId,
+    subtotal, descuentoTotal, impuestos, montoTotal,
+    estado, fechaVenta
+  ];
+}
+
+/// Modelo para Detalle de Venta
+class DetalleVenta extends Equatable {
+  final String id;
+  final String ventaId;
+  final String articuloId;
+  final int cantidad;
+  final double precioUnitario;
+  final double descuentoPorcentaje;
+  final double descuentoMonto;
+  final double subtotal;
+  final DateTime createdAt;
+
+  // Relaciones
+  final Articulo? articulo;
+
+  const DetalleVenta({
+    required this.id,
+    required this.ventaId,
+    required this.articuloId,
+    required this.cantidad,
+    required this.precioUnitario,
+    required this.descuentoPorcentaje,
+    required this.descuentoMonto,
+    required this.subtotal,
+    required this.createdAt,
+    this.articulo,
+  });
+
+  factory DetalleVenta.fromJson(Map<String, dynamic> json) {
+    return DetalleVenta(
+      id: json['id'] ?? '',
+      ventaId: json['venta_id'] ?? '',
+      articuloId: json['articulo_id'] ?? '',
+      cantidad: json['cantidad'] ?? 0,
+      precioUnitario: (json['precio_unitario'] ?? 0.0).toDouble(),
+      descuentoPorcentaje: (json['descuento_porcentaje'] ?? 0.0).toDouble(),
+      descuentoMonto: (json['descuento_monto'] ?? 0.0).toDouble(),
+      subtotal: (json['subtotal'] ?? 0.0).toDouble(),
+      createdAt: DateTime.parse(json['created_at']),
+      articulo: json['articulos'] != null ? Articulo.fromJson(json['articulos']) : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'venta_id': ventaId,
+      'articulo_id': articuloId,
+      'cantidad': cantidad,
+      'precio_unitario': precioUnitario,
+      'descuento_porcentaje': descuentoPorcentaje,
+      'descuento_monto': descuentoMonto,
+      'subtotal': subtotal,
+    };
+  }
+
+  @override
+  List<Object?> get props => [
+    id, ventaId, articuloId, cantidad, precioUnitario,
+    descuentoPorcentaje, descuentoMonto, subtotal
+  ];
+}
+
+/// Enum para estado de aprobación
+enum EstadoAprobacion { pendiente, aprobada, rechazada }
+
+/// Modelo para Aprobación de Descuento
+class AprobacionDescuento extends Equatable {
+  final String id;
+  final String ventaId;
+  final String vendedorId;
+  final String? supervisorId;
+  final double descuentoSolicitado;
+  final String? motivoDescuento;
+  final EstadoAprobacion estado;
+  final String? comentariosSupervisor;
+  final DateTime fechaSolicitud;
+  final DateTime? fechaRespuesta;
+  final DateTime createdAt;
+
+  const AprobacionDescuento({
+    required this.id,
+    required this.ventaId,
+    required this.vendedorId,
+    this.supervisorId,
+    required this.descuentoSolicitado,
+    this.motivoDescuento,
+    required this.estado,
+    this.comentariosSupervisor,
+    required this.fechaSolicitud,
+    this.fechaRespuesta,
+    required this.createdAt,
+  });
+
+  factory AprobacionDescuento.fromJson(Map<String, dynamic> json) {
+    EstadoAprobacion estado;
+    switch (json['estado']?.toString().toLowerCase()) {
+      case 'aprobada':
+        estado = EstadoAprobacion.aprobada;
+        break;
+      case 'rechazada':
+        estado = EstadoAprobacion.rechazada;
+        break;
+      default:
+        estado = EstadoAprobacion.pendiente;
+    }
+
+    return AprobacionDescuento(
+      id: json['id'] ?? '',
+      ventaId: json['venta_id'] ?? '',
+      vendedorId: json['vendedor_id'] ?? '',
+      supervisorId: json['supervisor_id'],
+      descuentoSolicitado: (json['descuento_solicitado'] ?? 0.0).toDouble(),
+      motivoDescuento: json['motivo_descuento'],
+      estado: estado,
+      comentariosSupervisor: json['comentarios_supervisor'],
+      fechaSolicitud: DateTime.parse(json['fecha_solicitud']),
+      fechaRespuesta: json['fecha_respuesta'] != null ? DateTime.parse(json['fecha_respuesta']) : null,
+      createdAt: DateTime.parse(json['created_at']),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    String estadoStr;
+    switch (estado) {
+      case EstadoAprobacion.aprobada:
+        estadoStr = 'aprobada';
+        break;
+      case EstadoAprobacion.rechazada:
+        estadoStr = 'rechazada';
+        break;
+      default:
+        estadoStr = 'pendiente';
+    }
+
+    return {
+      'id': id,
+      'venta_id': ventaId,
+      'vendedor_id': vendedorId,
+      'supervisor_id': supervisorId,
+      'descuento_solicitado': descuentoSolicitado,
+      'motivo_descuento': motivoDescuento,
+      'estado': estadoStr,
+      'comentarios_supervisor': comentariosSupervisor,
+      'fecha_solicitud': fechaSolicitud.toIso8601String(),
+      'fecha_respuesta': fechaRespuesta?.toIso8601String(),
+    };
+  }
+
+  @override
+  List<Object?> get props => [
+    id, ventaId, vendedorId, supervisorId, descuentoSolicitado,
+    motivoDescuento, estado, comentariosSupervisor,
+    fechaSolicitud, fechaRespuesta
+  ];
 }

@@ -33,7 +33,7 @@ class _TallaFormDialogState extends State<TallaFormDialog> {
   String _tipo = 'ROPA';
   int _ordenDisplay = 0;
 
-  final List<String> _tiposDisponibles = ['ROPA', 'CALZADO', 'ACCESORIOS', 'INDIVIDUAL'];
+  final List<String> _tiposDisponibles = ['ROPA', 'CALZADO', 'ACCESORIOS', 'INDIVIDUAL', 'RANGO'];
 
   @override
   void initState() {
@@ -61,6 +61,11 @@ class _TallaFormDialogState extends State<TallaFormDialog> {
   String _generateCodigo(String valor) {
     // Generar código basado en el valor
     final baseValue = valor.toUpperCase().replaceAll(' ', '');
+
+    // Para rangos como "3-5", usar el formato completo sin guiones
+    if (_tipo == 'RANGO' && baseValue.contains('-')) {
+      return baseValue.replaceAll('-', '');
+    }
 
     if (baseValue.length >= 2) {
       return baseValue.substring(0, 2);

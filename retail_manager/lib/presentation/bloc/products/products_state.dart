@@ -227,3 +227,23 @@ class InitialProductDataLoaded extends ProductsState {
   @override
   List<Object?> get props => [marcas, categorias, materiales, tallas, colores];
 }
+
+/// Estado optimizado para carga de datos de edición
+class EditProductDataLoaded extends ProductsState {
+  final ProductoMaster product;
+  final List<Marca> marcas;
+  final List<Categoria> categorias;
+  final List<Talla> tallas;
+  final List<MaterialModel> materiales;
+
+  const EditProductDataLoaded({
+    required this.product,
+    required this.marcas,
+    required this.categorias,
+    required this.tallas,
+    required this.materiales,
+  });
+
+  @override
+  List<Object?> get props => [product, marcas, categorias, tallas, materiales];
+}

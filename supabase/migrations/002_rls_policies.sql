@@ -202,4 +202,122 @@ CREATE POLICY "usuarios_acceso_no_recursivo" ON usuarios
 
 COMMENT ON POLICY "usuarios_acceso_no_recursivo" ON usuarios IS 'Política RLS no recursiva corrige error infinite recursion';
 
+-- =====================================================
+-- POLÍTICAS RLS MÓDULO DE VENTAS
+-- =====================================================
+
+-- Habilitar RLS en tablas de ventas
+ALTER TABLE estrategias_descuento ENABLE ROW LEVEL SECURITY;
+ALTER TABLE permisos_descuento ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ventas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE detalles_venta ENABLE ROW LEVEL SECURITY;
+ALTER TABLE aprobaciones_descuento ENABLE ROW LEVEL SECURITY;
+
+-- Políticas para estrategias_descuento
+CREATE POLICY "estrategias_descuento_select" ON estrategias_descuento
+    FOR SELECT USING (
+        -- Todos los usuarios autenticados pueden ver estrategias activas
+        activa = true AND (
+            tienda_id IS NULL OR
+            tienda_id IN (
+                SELECT tienda_id FROM usuarios WHERE id = auth.uid()
+            )
+        )
+    );
+
+CREATE POLICY "estrategias_descuento_admin" ON estrategias_descuento
+    FOR ALL USING (
+        -- Solo admin puede modificar estrategias
+        auth.jwt() ->> 'email' = 'admin@test.com'
+        OR
+        EXISTS (
+            SELECT 1 FROM usuarios
+            WHERE id = auth.uid() AND rol IN ('admin', 'supervisor')
+        )
+    );
+
+-- Políticas para permisos_descuento
+CREATE POLICY "permisos_descuento_select" ON permisos_descuento
+    FOR SELECT USING (
+        -- Todos pueden ver sus permisos
+        activo = true
+    );
+
+CREATE POLICY "permisos_descuento_admin" ON permisos_descuento
+    FOR ALL USING (
+        -- Solo admin puede modificar permisos
+        auth.jwt() ->> 'email' = 'admin@test.com'
+        OR
+        EXISTS (
+            SELECT 1 FROM usuarios
+            WHERE id = auth.uid() AND rol = 'admin'
+        )
+    );
+
+-- Políticas para ventas (los vendedores solo ven sus ventas, supervisores ven las de su tienda)
+CREATE POLICY "ventas_vendedor_propias" ON ventas
+    FOR ALL USING (
+        vendedor_id = auth.uid()
+        OR
+        -- Admin ve todas
+        auth.jwt() ->> 'email' = 'admin@test.com'
+        OR
+        -- Supervisor ve las de su tienda
+        EXISTS (
+            SELECT 1 FROM usuarios u
+            WHERE u.id = auth.uid()
+            AND u.rol IN ('supervisor', 'admin')
+            AND (u.rol = 'admin' OR u.tienda_id = ventas.tienda_id)
+        )
+    );
+
+-- Políticas para detalles_venta (siguen la misma lógica que ventas)
+CREATE POLICY "detalles_venta_acceso" ON detalles_venta
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM ventas v
+            WHERE v.id = detalles_venta.venta_id
+            AND (
+                v.vendedor_id = auth.uid()
+                OR
+                auth.jwt() ->> 'email' = 'admin@test.com'
+                OR
+                EXISTS (
+                    SELECT 1 FROM usuarios u
+                    WHERE u.id = auth.uid()
+                    AND u.rol IN ('supervisor', 'admin')
+                    AND (u.rol = 'admin' OR u.tienda_id = v.tienda_id)
+                )
+            )
+        )
+    );
+
+-- Políticas para aprobaciones_descuento
+CREATE POLICY "aprobaciones_descuento_vendedor" ON aprobaciones_descuento
+    FOR SELECT USING (
+        vendedor_id = auth.uid()
+        OR
+        auth.jwt() ->> 'email' = 'admin@test.com'
+    );
+
+CREATE POLICY "aprobaciones_descuento_supervisor" ON aprobaciones_descuento
+    FOR ALL USING (
+        vendedor_id = auth.uid()
+        OR
+        auth.jwt() ->> 'email' = 'admin@test.com'
+        OR
+        EXISTS (
+            SELECT 1 FROM usuarios u
+            WHERE u.id = auth.uid()
+            AND u.rol IN ('supervisor', 'admin')
+        )
+    );
+
+-- COMENTARIOS POLÍTICAS MÓDULO VENTAS
+COMMENT ON POLICY "estrategias_descuento_select" ON estrategias_descuento IS 'Usuarios pueden ver estrategias activas de su tienda';
+COMMENT ON POLICY "estrategias_descuento_admin" ON estrategias_descuento IS 'Solo admin/supervisor puede modificar estrategias';
+COMMENT ON POLICY "ventas_vendedor_propias" ON ventas IS 'Vendedores ven sus ventas, supervisores las de su tienda';
+COMMENT ON POLICY "detalles_venta_acceso" ON detalles_venta IS 'Acceso basado en políticas de ventas';
+COMMENT ON POLICY "aprobaciones_descuento_supervisor" ON aprobaciones_descuento IS 'Supervisor puede aprobar descuentos';
+
 -- Fin de políticas RLS limpias

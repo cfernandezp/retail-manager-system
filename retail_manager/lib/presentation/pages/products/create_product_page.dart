@@ -9,6 +9,7 @@ import '../../../data/repositories/products_repository_simple.dart';
 import '../../bloc/products/products_bloc.dart';
 import '../../widgets/products/color_selector.dart';
 import '../../widgets/products/color_selector_enhanced.dart';
+import '../../widgets/products/color_selector_from_db.dart';
 import '../../widgets/products/talla_selector.dart';
 import '../../widgets/common/corporate_form_field.dart';
 import '../../widgets/common/corporate_button.dart';
@@ -44,8 +45,8 @@ class _CreateProductPageState extends State<CreateProductPage>
   String? _selectedCategoriaId;
   String? _selectedTallaId;
   String? _selectedMaterialId;
-  List<String> _selectedColores = [];
-  Map<String, double> _preciosPorColor = {};
+  List<String> _selectedColoresIds = []; // Changed to store IDs instead of names
+  Map<String, double> _preciosPorColor = {}; // Keyed by color ID
   List<String> _selectedTiendas = [];
   Map<String, Map<String, dynamic>> _inventarioPorTienda = {};
   
@@ -557,7 +558,7 @@ class _CreateProductPageState extends State<CreateProductPage>
       listener: (context, state) {
         if (state is ProductCreated) {
           // Mostrar mensaje de éxito detallado
-          final articulosCreados = _selectedColores.length;
+          final articulosCreados = _selectedColoresIds.length;
           final tiendasConfiguradas = _selectedTiendas.length;
 
           ScaffoldMessenger.of(context).showSnackBar(
@@ -590,9 +591,12 @@ class _CreateProductPageState extends State<CreateProductPage>
             ),
           );
 
-          // Navegar de vuelta a la lista de productos
+          // Navegar de vuelta a la lista de productos y actualizar
           if (mounted) {
-            context.pop();
+            // Enviar evento para actualizar la lista de productos
+            context.read<ProductsBloc>().add(const RefreshProducts());
+            // Navegar a la página de productos
+            context.go('/products');
           }
         } else if (state is ProductsError) {
           // Mostrar mensaje de error detallado
@@ -1496,35 +1500,31 @@ class _CreateProductPageState extends State<CreateProductPage>
           ),
           const SizedBox(height: 24),
 
-          // Color selector - Colores de BD + opción crear nuevos
-          ColorSelectorEnhanced(
-            availableColors: _colores,
-            selectedColors: _selectedColores,
-            onColorsChanged: (colorNames) {
+          // Color selector - Colores de BD con soporte multi-color
+          MultiColorSelectorFromDB(
+            selectedColorIds: _selectedColoresIds,
+            onColorsChanged: (colorIds) {
               setState(() {
-                _selectedColores = colorNames;
+                _selectedColoresIds = colorIds;
                 // Inicializar precios por color
-                for (final color in colorNames) {
-                  if (!_preciosPorColor.containsKey(color)) {
+                for (final colorId in colorIds) {
+                  if (!_preciosPorColor.containsKey(colorId)) {
                     final precioBase = double.tryParse(_precioController.text) ?? 0.0;
-                    _preciosPorColor[color] = precioBase;
+                    _preciosPorColor[colorId] = precioBase;
                   }
                 }
                 // Remover precios de colores no seleccionados
                 _preciosPorColor.removeWhere(
-                  (color, _) => !colorNames.contains(color),
+                  (colorId, _) => !colorIds.contains(colorId),
                 );
               });
             },
-            onColorCreated: (newColor) {
-              // Recargar colores cuando se crea uno nuevo
-              setState(() {
-                _colores.add(newColor);
-              });
-            },
+            allowMultiple: true, // Permite colores únicos y múltiples
+            label: 'Seleccionar Colores',
+            isRequired: true,
           ),
 
-          if (_selectedColores.isNotEmpty) ...[
+          if (_selectedColoresIds.isNotEmpty) ...[
             const SizedBox(height: 32),
             const Text(
               'Precios por Color (Opcional)',
@@ -1545,38 +1545,72 @@ class _CreateProductPageState extends State<CreateProductPage>
             const SizedBox(height: 16),
 
             // Lista de precios por color
-            ..._selectedColores.map((color) => 
-              Container(
+            ..._selectedColoresIds.map((colorId) {
+              // Buscar el color en la lista para obtener los datos
+              final colorData = _colores.firstWhere(
+                (color) => color.id == colorId,
+                orElse: () => models.ColorData(
+                  id: colorId,
+                  nombre: 'Color Desconocido',
+                  hexColor: '#808080',
+                  tipoColor: 'UNICO',
+                  createdAt: DateTime.now(),
+                ),
+              );
+
+              return Container(
                 margin: const EdgeInsets.only(bottom: 16),
                 child: Row(
                   children: [
-                    // Color indicator
+                    // Color indicator using hex color
                     Container(
                       width: 24,
                       height: 24,
                       decoration: BoxDecoration(
-                        color: _getColorFromName(color),
+                        color: _parseHexColor(colorData.hexColor),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: Colors.grey[300]!),
                       ),
                     ),
                     const SizedBox(width: 12),
-                    // Color name
+                    // Color name and type
                     SizedBox(
-                      width: 100,
-                      child: Text(
-                        color,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
+                      width: 120,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            colorData.nombre,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          if (colorData.esColorMultiple)
+                            Container(
+                              margin: const EdgeInsets.only(top: 2),
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: Colors.blue[100],
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'Multi',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  color: Colors.blue[800],
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                     const SizedBox(width: 16),
                     // Price input
                     Expanded(
                       child: TextFormField(
-                        initialValue: _preciosPorColor[color]?.toString() ?? '',
+                        initialValue: _preciosPorColor[colorId]?.toString() ?? '',
                         decoration: InputDecoration(
                           labelText: 'Precio S/',
                           isDense: true,
@@ -1591,15 +1625,15 @@ class _CreateProductPageState extends State<CreateProductPage>
                         onChanged: (value) {
                           final precio = double.tryParse(value);
                           if (precio != null) {
-                            _preciosPorColor[color] = precio;
+                            _preciosPorColor[colorId] = precio;
                           }
                         },
                       ),
                     ),
                   ],
                 ),
-              ),
-            ).toList(),
+              );
+            }).toList(),
 
             const SizedBox(height: 24),
             
@@ -1618,7 +1652,7 @@ class _CreateProductPageState extends State<CreateProductPage>
                       ),
                     ),
                     const SizedBox(height: 12),
-                    ..._selectedColores.map((color) {
+                    ..._selectedColoresIds.map((color) {
                       final sku = _generatePreviewSKU(color);
                       final precio = _preciosPorColor[color] ?? 
                           double.tryParse(_precioController.text) ?? 0.0;
@@ -1818,7 +1852,7 @@ class _CreateProductPageState extends State<CreateProductPage>
             }).toList(),
           ],
 
-          if (_selectedColores.isNotEmpty && _selectedTiendas.isNotEmpty) ...[
+          if (_selectedColoresIds.isNotEmpty && _selectedTiendas.isNotEmpty) ...[
             const SizedBox(height: 24),
             
             // Resumen final
@@ -1839,14 +1873,14 @@ class _CreateProductPageState extends State<CreateProductPage>
                     ),
                     const SizedBox(height: 12),
                     
-                    Text('• ${_selectedColores.length} colores'),
+                    Text('• ${_selectedColoresIds.length} colores'),
                     Text('• ${_selectedTiendas.length} tiendas'),
-                    Text('• ${_selectedColores.length * _selectedTiendas.length} registros de inventario'),
+                    Text('• ${_selectedColoresIds.length * _selectedTiendas.length} registros de inventario'),
                     
                     const SizedBox(height: 12),
                     
                     Text(
-                      'Se crearán ${_selectedColores.length} artículos con sus respectivos SKUs automáticos.',
+                      'Se crearán ${_selectedColoresIds.length} artículos con sus respectivos SKUs automáticos.',
                       style: TextStyle(
                         fontSize: 12,
                         color: AppTheme.textSecondaryColor,
@@ -1895,7 +1929,7 @@ class _CreateProductPageState extends State<CreateProductPage>
             child: _currentStep == _totalSteps - 1
                 ? CorporateButton(
                     text: 'Crear Producto',
-                    onPressed: _canCreateProduct() ? _createProduct : null,
+                    onPressed: _canCreateProduct() ? _showConfirmationDialog : null,
                     isLoading: _isLoading,
                     icon: Icons.check,
                   )
@@ -1927,7 +1961,7 @@ class _CreateProductPageState extends State<CreateProductPage>
       case 0:
         return _formKey.currentState?.validate() ?? false;
       case 1:
-        return _selectedColores.isNotEmpty;
+        return _selectedColoresIds.isNotEmpty;
       case 2:
         return true;
       default:
@@ -1950,7 +1984,7 @@ class _CreateProductPageState extends State<CreateProductPage>
            materialValido &&
            tallaValida &&
            _precioController.text.isNotEmpty &&
-           _selectedColores.isNotEmpty;
+           _selectedColoresIds.isNotEmpty;
   }
 
   void _nextStep() {
@@ -1969,6 +2003,82 @@ class _CreateProductPageState extends State<CreateProductPage>
     );
   }
 
+  void _showConfirmationDialog() {
+    final articulosACrear = _selectedColoresIds.length;
+    final tiendasConfiguradas = _selectedTiendas.length;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.help_outline, color: AppTheme.primaryColor),
+              const SizedBox(width: 8),
+              const Text('Confirmar Creación'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '¿Deseas crear el producto "${_nombreController.text.trim()}"?',
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 16),
+              Text('📋 Resumen:', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+              const SizedBox(height: 8),
+              Text('• Producto: ${_nombreController.text.trim()}'),
+              Text('• Artículos a crear: $articulosACrear (uno por color)'),
+              if (tiendasConfiguradas > 0)
+                Text('• Tiendas configuradas: $tiendasConfiguradas'),
+              Text('• Precio base: S/ ${_precioController.text}'),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue[200]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.blue[600], size: 20),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Esta acción creará el producto y todos sus artículos asociados.',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text('Cancelar', style: TextStyle(color: AppTheme.textSecondaryColor)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Cerrar diálogo
+                _createProduct(); // Proceder con la creación
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.successColor,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Sí, Crear Producto'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _createProduct() async {
     if (!_canCreateProduct()) return;
 
@@ -1979,7 +2089,7 @@ class _CreateProductPageState extends State<CreateProductPage>
       print('🚀 [CREAR_PRODUCTO] ==================== INICIO ====================');
       print('📋 Resumen de datos a crear:');
       print('   • Nombre: ${_nombreController.text.trim()}');
-      print('   • Colores seleccionados: $_selectedColores (${_selectedColores.length} colores)');
+      print('   • Colores seleccionados: $_selectedColoresIds (${_selectedColoresIds.length} colores)');
       print('   • Tiendas seleccionadas: $_selectedTiendas (${_selectedTiendas.length} tiendas)');
       print('   • Precio base: ${_precioController.text}');
       print('');
@@ -2053,28 +2163,24 @@ class _CreateProductPageState extends State<CreateProductPage>
         productData.remove('material_id');
       }
 
-      // 3. CONVERTIR NOMBRES DE COLORES A IDs
-      print('🎨 [FASE_4] Convirtiendo nombres de colores a IDs...');
-      final coloresIds = <String>[];
-      for (final nombreColor in _selectedColores) {
-        // Buscar el color por nombre (case-insensitive)
-        final colorEncontrado = _colores.where((color) =>
-          color.nombre.toLowerCase() == nombreColor.toLowerCase()).firstOrNull;
+      // 3. VALIDAR IDs DE COLORES SELECCIONADOS
+      print('🎨 [FASE_4] Validando IDs de colores seleccionados...');
+      final coloresIds = List<String>.from(_selectedColoresIds);
 
-        if (colorEncontrado != null) {
-          coloresIds.add(colorEncontrado.id);
-          print('   ✅ "$nombreColor" → ID: ${colorEncontrado.id}');
-        } else {
-          // Este caso no debería ocurrir ya que ColorSelectorEnhanced
-          // solo permite seleccionar colores existentes o crea nuevos automáticamente
-          print('   ⚠️ Color "$nombreColor" no encontrado en la lista actual');
-          throw Exception('Color "$nombreColor" no encontrado. Esto es un error del sistema.');
+      // Validar que todos los IDs existen en la lista de colores
+      for (final colorId in coloresIds) {
+        final colorExiste = _colores.any((color) => color.id == colorId);
+        if (!colorExiste) {
+          print('   ⚠️ Color con ID "$colorId" no encontrado en la lista actual');
+          throw Exception('Color con ID "$colorId" no encontrado. Error del sistema.');
         }
+
+        final colorData = _colores.firstWhere((color) => color.id == colorId);
+        print('   ✅ Color validado: ${colorData.nombre} (ID: $colorId)');
       }
 
-      print('🎨 [FASE_4] Conversión colores completada:');
-      print('   Nombres originales: $_selectedColores');
-      print('   IDs convertidos: $coloresIds');
+      print('🎨 [FASE_4] Validación de colores completada:');
+      print('   IDs de colores: $coloresIds');
       print('');
 
       print('🏗️ [FASE_5] Creando producto en BD...');
@@ -2135,6 +2241,27 @@ class _CreateProductPageState extends State<CreateProductPage>
     };
 
     return colors[colorName.toLowerCase()] ?? Colors.grey[400]!;
+  }
+
+  /// Parse hex color from string to Color object
+  Color _parseHexColor(String hexColor) {
+    try {
+      // Remover # si existe
+      String cleanHex = hexColor.replaceAll('#', '');
+
+      // Asegurar que tenga 6 caracteres
+      if (cleanHex.length == 3) {
+        cleanHex = cleanHex.split('').map((char) => char + char).join();
+      }
+
+      if (cleanHex.length != 6) {
+        return Colors.grey[400]!;
+      }
+
+      return Color(int.parse('0xFF$cleanHex'));
+    } catch (e) {
+      return Colors.grey[400]!;
+    }
   }
 
   String _getHexFromColorName(String colorName) {

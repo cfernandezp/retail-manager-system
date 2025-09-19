@@ -27,6 +27,7 @@ class ProductsBloc extends Bloc<ProductsEvent, ProductsState> {
     on<ProductRealTimeUpdate>(_onProductRealTimeUpdate);
     on<LoadInitialProductData>(_onLoadInitialProductData);
     on<UpdateProductoMaster>(_onUpdateProductoMaster);
+    on<LoadEditProductData>(_onLoadEditProductData);
   }
 
   Future<void> _onLoadProducts(
@@ -485,6 +486,32 @@ class ProductsBloc extends Bloc<ProductsEvent, ProductsState> {
       emit(ProductUpdated(updatedProduct));
     } catch (e) {
       emit(ProductsError("Error al actualizar producto: $e"));
+    }
+  }
+
+  Future<void> _onLoadEditProductData(
+    LoadEditProductData event,
+    Emitter<ProductsState> emit,
+  ) async {
+    emit(const ProductsLoading());
+
+    try {
+      print('🔄 [ProductsBloc] Carga optimizada para edición: ${event.productId}');
+
+      final data = await _repository.loadEditProductData(event.productId);
+
+      emit(EditProductDataLoaded(
+        product: data['product'] as ProductoMaster,
+        marcas: data['marcas'] as List<Marca>,
+        categorias: data['categorias'] as List<Categoria>,
+        tallas: data['tallas'] as List<Talla>,
+        materiales: data['materiales'] as List<MaterialModel>,
+      ));
+
+      print('✅ [ProductsBloc] Datos de edición emitidos exitosamente');
+    } catch (e) {
+      print('❌ [ProductsBloc] Error en carga optimizada: $e');
+      emit(ProductsError("Error al cargar datos de edición: $e"));
     }
   }
 

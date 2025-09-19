@@ -6,6 +6,42 @@ Este archivo proporciona guía a Claude Code (claude.ai/code) para trabajar con 
 
 Sistema de gestión retail/inventario especializado en ventas de ropa y medias. Desarrollado con Flutter para multiplataforma (web + móvil) y Supabase como backend-as-a-service.
 
+## ⚠️ ESPECIFICACIONES DE VERSIONES CRÍTICAS ⚠️
+
+### **TODOS LOS AGENTES IA DEBEN USAR ESTAS VERSIONES EXACTAS:**
+
+#### **Entorno Base**
+- **Flutter**: `3.35.1` (stable channel)
+- **Dart**: `3.9.0`
+- **SDK**: `^3.9.0`
+
+#### **Dependencias Principales**
+- **supabase_flutter**: `^2.8.0` → ⚠️ **CRÍTICO**: Usar `.isFilter()` NO `.is_()`
+- **flutter_bloc**: `^8.1.6`
+- **go_router**: `^14.6.1`
+- **equatable**: `^2.0.5`
+
+#### **ERRORES CRÍTICOS A EVITAR:**
+```dart
+// ❌ INCORRECTO (versión antigua Supabase)
+.is_('campo', valor)
+
+// ✅ CORRECTO (Supabase v2.8.0)
+.isFilter('campo', valor)
+
+// ❌ INCORRECTO (Spread operator mal usado)
+if (condition) ...[
+  widget,
+  // Sin cierre
+
+// ✅ CORRECTO (Dart 3.9.0)
+if (condition) ...[
+  widget,
+], // Cierre explícito
+```
+
+**📋 Documentación completa**: `docs/VERSION_SPECIFICATIONS.md`
+
 ## Arquitectura y Stack Tecnológico
 
 ### Stack Principal
@@ -26,26 +62,107 @@ El sistema está organizado en estos dominios principales:
 
 ## Agentes Especializados
 
-Este repositorio utiliza 5 agentes especializados optimizados para trabajo eficiente:
+### Agentes Claude Code Disponibles
+- **general-purpose**: Investigación, análisis de problemas complejos, diagnóstico técnico y preparación de especificaciones para agentes especializados
+- **flutter-supabase-architect**: Arquitecturas Flutter+Supabase completas, diseño de sistemas end-to-end, implementación de funcionalidades multi-dominio
+- **statusline-setup**: Configuración de status line Claude Code
+- **output-style-setup**: Configuración de estilos de output Claude Code
 
-### Equipo de Desarrollo Principal
-- **ux-ui-expert**: Especialista en experiencia de usuario y diseño visual para interfaces retail, wireframes, flujos de usuario, accesibilidad y design systems
-- **flutter-expert**: Especialista Flutter/Dart para UI/UX multiplataforma, gestión de estado, navegación, diseño responsivo e integración con Supabase
-- **supabase-expert**: Especialista Supabase para esquemas de BD, políticas RLS, Edge Functions, Auth, subscripciones Realtime y diseño de APIs
-- **database-expert**: Especialista PostgreSQL para modelado de datos, indexación, restricciones, migraciones, optimización de rendimiento y consultas analíticas
-- **technical-documentator**: Especialista en documentación técnica automática, gestión de contexto compartido, alineación de agentes y optimización de tokens para el equipo de desarrollo
+### Metodología de Trabajo con Agentes
+1. **general-purpose** → Análisis inicial del problema y especificaciones técnicas
+2. **UX/UI Coordinator** → Coordinación de implementación respetando guidelines de diseño
+3. **flutter-supabase-architect** → Implementación completa Flutter+Supabase
+4. **UX/UI Coordinator** → Supervisión final y validación de UX
 
-## DIRECTIVA CRÍTICA: COORDINACIÓN DE AGENTES
+## ⚠️ DIRECTIVA CRÍTICA: FASE DE ANÁLISIS flutter-supabase-architect ⚠️
 
-### ⚠️ IMPORTANTE: Rol del Agente UX/UI ⚠️
-**El agente UX/UI actúa ÚNICAMENTE como COORDINADOR y NO debe codificar directamente**
+### **REGLA OBLIGATORIA: NO CÓDIGO EN FASE DE ANÁLISIS**
 
-**ROL CORRECTO del UX/UI:**
-- ✅ **COORDINADOR**: Orquesta y delega tareas a agentes especializados
-- ✅ **PLANIFICADOR**: Define flujos, wireframes y especificaciones UX
-- ✅ **SUPERVISOR**: Revisa y aprueba implementaciones de otros agentes
-- ✅ **GESTOR DE ERRORES**: El usuario reporta TODOS los errores al UX/UI, quien coordina la solución con el agente apropiado
-- ❌ **NO CODIFICA**: No debe usar herramientas Edit, Write, MultiEdit directamente
+**Cuando se usa flutter-supabase-architect para análisis conceptual:**
+
+✅ **SÍ PROPORCIONAR:**
+- Análisis arquitectónico conceptual
+- Comparación de enfoques y alternativas
+- Ventajas/desventajas técnicas y de negocio
+- Recomendaciones fundamentadas
+- Consideraciones de escalabilidad y performance
+- Impacto en UX/UI y operaciones
+- Estrategias de migración e implementación
+
+❌ **NO PROPORCIONAR:**
+- Código Flutter/Dart
+- Scripts SQL o migraciones específicas
+- Implementaciones detalladas
+- Ejemplos de código
+- Snippets o fragmentos
+
+### **FLUJO DE TRABAJO OBLIGATORIO:**
+
+1. **FASE 1 - ANÁLISIS** → flutter-supabase-architect proporciona solo análisis conceptual
+2. **FASE 2 - DISCUSIÓN** → Refinamiento de propuesta con usuario
+3. **FASE 3 - APROBACIÓN** → Usuario aprueba enfoque seleccionado
+4. **FASE 4 - DESARROLLO** → Coordinación con agentes para implementación con código
+
+**Esta directiva garantiza que no se genere código prematuro que podría no ser utilizado.**
+
+## GUIDELINES UX/UI - DISEÑO ESTABLECIDO
+
+### 🎨 **Sistema de Colores Corporativo**
+```dart
+// Paleta principal - Turquesa moderno retail
+primaryTurquoise: Color(0xFF4ECDC4)    // Color principal
+primaryLight: Color(0xFF7DEDE8)        // Variante clara
+primaryDark: Color(0xFF26A69A)         // Variante oscura
+successColor: Color(0xFF4CAF50)        // Verde éxito
+errorColor: Color(0xFFF44336)          // Rojo error
+warningColor: Color(0xFFFF9800)        // Naranja advertencia
+```
+
+### 📱 **Responsive Breakpoints Obligatorios**
+```dart
+// Breakpoints específicos del proyecto
+mobileBreakpoint: 768px     // Mobile: < 768px
+tabletBreakpoint: 1200px    // Tablet: 768px - 1200px
+desktopBreakpoint: 1200px   // Desktop: ≥ 1200px
+```
+
+### 🧩 **Componentes Estandarizados**
+```dart
+// Botones corporativos
+CorporateButton(
+  height: 52px,                    // Altura estándar
+  borderRadius: 12px,              // Radio consistente
+  backgroundColor: primaryTurquoise // Color principal
+)
+
+// Campos de formulario
+CorporateFormField(
+  borderRadius: 12px,              // Radio consistente
+  animation: Duration(200ms),      // Micro-interacciones
+  focusedBorder: primaryTurquoise  // Color foco
+)
+
+// Cards del sistema
+Card(
+  elevation: 2,                    // Sombra sutil
+  borderRadius: 12px,              // Radio consistente
+  color: cardWhite                 // Fondo blanco limpio
+)
+```
+
+### 🚀 **Navegación Adaptativa**
+```dart
+// Desktop (≥1200px): Sidebar fijo expandido con toggle
+// Tablet (768-1199px): NavigationRail colapsible Material 3
+// Mobile (<768px): Drawer oculto + BottomNavigation
+```
+
+### ⚠️ **COORDINACIÓN UX/UI**
+**Todos los agentes DEBEN respetar estos guidelines automáticamente:**
+- ✅ **COORDINADOR**: Supervisa cumplimiento de diseño establecido
+- ✅ **PLANIFICADOR**: Define flujos respetando patrones existentes
+- ✅ **SUPERVISOR**: Valida que implementaciones mantengan consistencia
+- ✅ **GUARDIAN DEL DISEÑO**: Preserva identidad visual turquesa moderna
 
 **METODOLOGÍA OBLIGATORIA:**
 1. **UX/UI** analiza requerimiento y define especificaciones
@@ -150,28 +267,75 @@ EJEMPLO CORRECTO:
 para verificar policies RLS que bloquean acceso"
 ```
 
-### 🧠 ÁRBOL DE DECISIÓN PARA COORDINACIÓN
+### 📋 **PATRONES DE IMPLEMENTACIÓN OBLIGATORIOS**
 
+#### 🔄 **Micro-interacciones Estándar**
+```dart
+// Hover effects en cards
+AnimatedContainer(
+  duration: Duration(milliseconds: 200),      // Duración estándar
+  transform: isHovered ? Matrix4.scale(1.02) : Matrix4.identity(),
+  child: Card(elevation: isHovered ? 8 : 2)   // Elevación dinámica
+)
+
+// Estados de loading
+CircularProgressIndicator(
+  color: AppTheme.primaryTurquoise,           // Color consistente
+  strokeWidth: 2,                             // Grosor estándar
+)
+
+// Mensajes de feedback
+SnackBar(
+  backgroundColor: AppTheme.successColor,     // Verde para éxito
+  behavior: SnackBarBehavior.floating,        // Comportamiento estándar
+  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))
+)
 ```
-¿El problema involucra DATOS de BD?
-├─ SÍ ─── ¿También UI/UX?
-│         ├─ SÍ → flutter-expert + supabase-expert
-│         └─ NO → supabase-expert solo
-└─ NO ─── ¿Solo UI/Navegación?
-          ├─ SÍ → flutter-expert solo
-          └─ NO → Analizar más dominio específico
+
+#### 🎛️ **Formularios Estándar**
+```dart
+// Estructura obligatoria de formularios
+Form(
+  key: _formKey,
+  child: Column(
+    children: [
+      CorporateFormField(),                     // Campos estandarizados
+      SizedBox(height: 16),                     // Espaciado consistente
+      CorporateButton(),                        // Botones corporativos
+    ]
+  )
+)
+
+// Validación estándar
+validator: (value) {
+  if (value?.isEmpty ?? true) return 'Campo requerido';
+  return null;
+}
 ```
 
-### 📋 CHECKLIST OBLIGATORIO ANTES DE COORDINAR
+#### 📱 **Navegación Responsive**
+```dart
+// Decisión automática por breakpoint
+if (width >= AppTheme.desktopBreakpoint) {
+  return DesktopLayout(sidebar: fixed);       // Sidebar fijo desktop
+} else if (width >= AppTheme.mobileBreakpoint) {
+  return TabletLayout(rail: collapsible);     // Rail tablet
+} else {
+  return MobileLayout(drawer: hidden);        // Drawer + bottom nav
+}
+```
 
-**ANTES de delegar, UX/UI DEBE preguntarse:**
-- [ ] ¿Este problema involucra mostrar datos de BD? → Agregar supabase-expert
-- [ ] ¿Hay validación o persistencia? → Agregar database-expert  
-- [ ] ¿Afecta UI/UX/navegación? → Agregar flutter-expert
-- [ ] ¿Hay autenticación/permisos? → Agregar supabase-expert
-- [ ] ¿Performance de consultas? → Agregar database-expert
+### ✅ **CHECKLIST IMPLEMENTACIÓN OBLIGATORIO**
 
-**CRÍTICO:** Si se olvida un agente relevante, el problema se resolverá parcialmente y reaparecerán errores relacionados.
+**ANTES de implementar, VERIFICAR:**
+- [ ] ¿Respeta paleta de colores? → Usar solo AppTheme.primaryTurquoise
+- [ ] ¿Usa componentes estándar? → CorporateButton, CorporateFormField
+- [ ] ¿Breakpoints correctos? → Desktop ≥1200px, Tablet 768-1199px, Mobile <768px
+- [ ] ¿Micro-interacciones? → Hover, loading, animaciones 200ms
+- [ ] ¿Mensajes consistentes? → SnackBar con colores de estado
+- [ ] ¿Navegación adaptativa? → Sidebar/Rail/Drawer según plataforma
+
+**CRÍTICO:** Mantener consistencia visual turquesa moderna en todas las implementaciones.
 
 ### ✅ EJEMPLOS DE COORDINACIÓN MEJORADA
 
@@ -194,67 +358,237 @@ Ambos agentes trabajarán el problema desde sus especialidades"
 
 **RESULTADO:** Problema resuelto completamente en una iteración vs múltiples intentos parciales.
 
-## MEJORES PRÁCTICAS PARA PROMPTS DE AGENTES
+## EJEMPLOS DE IMPLEMENTACIÓN CORRECTA
 
-### ⚠️ PROBLEMA: Errores Repetidos por Prompts Deficientes ⚠️
-
-**Errores comunes identificados:**
-- Campo BD mismatch (`activo` vs `activa`)
-- Constraint violations (unique keys, tipos incorrectos)
-- API 400/23505 errors por datos mal formateados
-- Mapeo incorrecto entre modelos Flutter y esquema BD
-
-### 📋 TEMPLATE MEJORADO PARA PROMPTS
-
-**ESTRUCTURA OBLIGATORIA para delegar tareas:**
-
+### 🎨 **Card Producto - Patrón Establecido**
+```dart
+// Implementación que respeta guidelines
+Card(
+  elevation: 2,                               // Elevación estándar
+  shadowColor: AppTheme.primaryTurquoise.withOpacity(0.3),
+  shape: RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(12),   // Radio consistente
+  ),
+  child: InkWell(
+    borderRadius: BorderRadius.circular(12),
+    onTap: onTap,
+    child: Padding(
+      padding: EdgeInsets.all(16),             // Padding estándar
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.textPrimary,        // Color texto principal
+            ),
+          ),
+          SizedBox(height: 8),                   // Espaciado consistente
+          Text(
+            subtitle,
+            style: TextStyle(
+              color: AppTheme.textSecondary,      // Color texto secundario
+            ),
+          ),
+        ],
+      ),
+    ),
+  ),
+)
 ```
-CONTEXTO ESPECÍFICO:
-- Esquema BD actual: [campos exactos, tipos, constraints]
-- Archivos relacionados: [rutas específicas]
-- Errores conocidos evitados: [lista de errores ya resueltos]
-- Patrones establecidos: [convenciones del proyecto]
 
-TAREA ESPECÍFICA:
-- Objetivo medible: [comportamiento exacto esperado]
-- Archivos a modificar: [rutas absolutas]
-- Validaciones requeridas: [casos específicos a manejar]
-- Integración: [cómo se conecta con código existente]
-
-INFORMACIÓN CRÍTICA DE BD:
-- Tabla: [nombre]
-- Campos: [nombre: tipo, constraints]
-- RLS policies: [si aplica]
-- Unique constraints: [campos únicos]
-
-CRITERIOS DE ÉXITO:
-- Funcionalidad: [comportamiento observable]
-- Manejo de errores: [errores específicos a capturar]
-- UX: [mensajes al usuario]
-- Testing: [cómo verificar que funciona]
+### 📋 **Modal/Dialog - Patrón Establecido**
+```dart
+// Estructura estándar para modals
+Dialog(
+  shape: RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(12),   // Radio consistente
+  ),
+  child: Container(
+    constraints: BoxConstraints(maxWidth: 500), // Ancho máximo
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Header con color corporativo
+        Container(
+          padding: EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryTurquoise.withOpacity(0.1),
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(12),
+              topRight: Radius.circular(12),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.edit, color: AppTheme.primaryTurquoise),
+              SizedBox(width: 12),
+              Text(
+                'Título Modal',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.primaryTurquoise,
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Contenido
+        Padding(
+          padding: EdgeInsets.all(24),
+          child: Form(/* Formulario estándar */),
+        ),
+        // Footer con botones
+        Container(
+          padding: EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.grey[50],
+            borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(12),
+              bottomRight: Radius.circular(12),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: onCancel,
+                child: Text('Cancelar'),
+              ),
+              SizedBox(width: 12),
+              CorporateButton(
+                text: 'Guardar',
+                onPressed: onSave,
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  ),
+)
 ```
 
-### 🎯 INFORMACIÓN CONTEXTUAL CRÍTICA
+### 📱 **Lista/Grid Responsive - Patrón Establecido**
+```dart
+// Grid adaptativo según breakpoint
+LayoutBuilder(
+  builder: (context, constraints) {
+    final width = constraints.maxWidth;
+    int crossAxisCount;
 
-**ESQUEMAS DE BD CONFIRMADOS:**
-- `marcas`: campos con `activa` (boolean)
-- `categorias`: campos con `activa` (boolean)
-- `tallas`: campos con `activa` (boolean), unique constraint en `codigo`
-- `colores`: campos con `activa` (boolean)
-- `tiendas`: campos con `activa` (boolean)
+    if (width >= AppTheme.desktopBreakpoint) {
+      crossAxisCount = 3;                       // Desktop: 3 columnas
+    } else if (width >= AppTheme.mobileBreakpoint) {
+      crossAxisCount = 2;                       // Tablet: 2 columnas
+    } else {
+      crossAxisCount = 1;                       // Mobile: 1 columna
+    }
 
-**CONVENCIONES ESTABLECIDAS:**
-- Usar `activa` (no `activo`) para campos boolean de estado
-- Validación local antes de llamadas a BD
-- Manejo específico de errores 400, 23505
-- Mensajes user-friendly vs técnicos
-- Case-insensitive comparisons para duplicados
+    return GridView.builder(
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
+        mainAxisSpacing: 16,                    // Espaciado consistente
+        crossAxisSpacing: 16,
+        childAspectRatio: 0.8,                  // Proporción estándar
+      ),
+      itemBuilder: (context, index) => ProductMasterCard(),
+    );
+  },
+)
+```
 
-**ERRORES YA RESUELTOS (NO repetir):**
-- ✅ Campo `activo` → `activa` en repositories
-- ✅ Error 400 en POST tallas por mapping incorrecto
-- ✅ Error 23505 por constraint unique sin validación previa
-- ✅ Tipos incorrectos: `'UNICA'` → `'INDIVIDUAL'`
+## METODOLOGÍA DE TRABAJO CON AGENTES
+
+### 🤖 **TEMPLATE PARA COORDINAR AGENTES**
+
+```markdown
+TAREA: [Descripción específica]
+
+GUIDELINES UX OBLIGATORIOS:
+✅ Paleta: Solo AppTheme.primaryTurquoise y variantes
+✅ Componentes: CorporateButton, CorporateFormField, Cards estándar
+✅ Responsive: Desktop ≥1200px, Tablet 768-1199px, Mobile <768px
+✅ Micro-interacciones: Hover 200ms, loading consistente
+✅ Navegación: Sidebar fijo desktop, Rail tablet, Drawer+Bottom mobile
+
+IMPLEMENTAR:
+1. [Cambio específico 1 con ejemplo de código]
+2. [Cambio específico 2 respetando patrones]
+3. [Validación UX requerida]
+
+ARCHIVOS:
+- [ruta absoluta archivo 1]
+- [ruta absoluta archivo 2]
+
+CRITERIOS ÉXITO:
+- Diseño mantiene identidad turquesa moderna
+- Componentes reutilizan widgets corporativos
+- Responsive funciona en todos los breakpoints
+- Micro-interacciones fluidas y consistentes
+```
+
+### 🛡️ **VALIDACIONES Y MEJORES PRÁCTICAS**
+
+**ESQUEMAS BD CONFIRMADOS:**
+```sql
+marcas: activo (boolean)           -- Campo activo confirmado
+categorias: activo (boolean)       -- Campo activo confirmado
+tallas: activo (boolean)           -- Campo activo confirmado
+colores: activo (boolean)          -- Campo activo confirmado
+tiendas: activa (boolean)          -- Campo activa (excepción)
+productos_master: estado (enum)    -- Estados: ACTIVO/INACTIVO/DESCONTINUADO
+```
+
+**VALIDACIONES OBLIGATORIAS:**
+```dart
+// Validación nombres duplicados antes save
+final isDuplicate = await repository.checkExists(
+  nombre: nombre.trim().toLowerCase(),
+  excludeId: currentId,
+);
+if (isDuplicate) {
+  showError('Ya existe un registro con ese nombre');
+  return;
+}
+
+// Manejo errores BD estándar
+catch (e) {
+  String message = 'Error inesperado';
+  if (e.toString().contains('23505')) {
+    message = 'Ya existe un registro con esos datos';
+  } else if (e.toString().contains('23503')) {
+    message = 'No se puede eliminar: tiene registros relacionados';
+  }
+  showError(message);
+}
+```
+
+**MENSAJES UX CONSISTENTES:**
+```dart
+// Éxito: Verde con icono
+SnackBar(
+  content: Row([
+    Icon(Icons.check_circle, color: Colors.white),
+    SizedBox(width: 8),
+    Text('Operación completada exitosamente'),
+  ]),
+  backgroundColor: AppTheme.successColor,
+)
+
+// Error: Rojo con icono
+SnackBar(
+  content: Row([
+    Icon(Icons.error, color: Colors.white),
+    SizedBox(width: 8),
+    Text(errorMessage),
+  ]),
+  backgroundColor: AppTheme.errorColor,
+)
+```
 
 ### 🔧 PROMPTS MEJORADOS - EJEMPLOS
 

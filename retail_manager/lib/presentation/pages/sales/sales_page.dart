@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 
 /// Página de gestión de ventas
@@ -39,9 +40,9 @@ class SalesPage extends StatelessWidget {
                   ],
                 ),
                 ElevatedButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.receipt_long),
-                  label: const Text('Ver Reportes'),
+                  onPressed: () => context.go('/sales/test'),
+                  icon: const Icon(Icons.science),
+                  label: const Text('Módulo de Pruebas'),
                 ),
               ],
             ),

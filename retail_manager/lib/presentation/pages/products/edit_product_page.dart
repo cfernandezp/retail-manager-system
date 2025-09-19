@@ -4,9 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/product_models.dart' as models;
+import '../../../data/repositories/products_repository_simple.dart';
 import '../../bloc/products/products_bloc.dart';
 import '../../widgets/common/loading_indicator.dart';
-import '../../widgets/common/error_message.dart';
 
 /// Página/Modal para Editar Producto adaptativo según breakpoint
 class EditProductPage extends StatefulWidget {
@@ -35,12 +35,14 @@ class _EditProductPageState extends State<EditProductPage> {
   String? _selectedMarcaId;
   String? _selectedCategoriaId;
   String? _selectedMaterialId;
+  String? _selectedTallaId;  // AGREGADO: Selector talla
   bool _isActive = true;
 
   // Datos para poblar dropdowns
   List<models.Marca> _marcas = [];
   List<models.Categoria> _categorias = [];
   List<models.MaterialModel> _materiales = [];
+  List<models.Talla> _tallas = [];  // AGREGADO: Lista tallas
 
   // Producto actual para pre-poblar
   models.ProductoMaster? _currentProduct;
@@ -64,29 +66,39 @@ class _EditProductPageState extends State<EditProductPage> {
   }
 
   void _loadInitialData() {
-    print('🔄 [EditProduct] Iniciando carga de datos para producto: ${widget.productId}');
+    print('🔄 [EditProduct] Cargando datos directamente para producto: ${widget.productId}');
+    _loadDataDirectly();
+  }
 
-    // Cargar datos para dropdowns primero
-    _productsBloc.add(const LoadInitialProductData());
+  Future<void> _loadDataDirectly() async {
+    try {
+      final repository = ProductsRepository();
+      final data = await repository.loadEditProductData(widget.productId);
 
-    // Luego cargar datos del producto actual
-    _productsBloc.add(LoadProductDetails(widget.productId));
-
-    // Timeout de seguridad para evitar loading infinito
-    Future.delayed(const Duration(seconds: 10), () {
-      if (mounted && _isLoading) {
-        print('⚠️ [EditProduct] Timeout de carga, forzando salida de loading');
+      if (mounted) {
         setState(() {
+          _currentProduct = data['product'] as models.ProductoMaster;
+          _marcas = data['marcas'] as List<models.Marca>;
+          _categorias = data['categorias'] as List<models.Categoria>;
+          _tallas = data['tallas'] as List<models.Talla>;
+          _materiales = data['materiales'] as List<models.MaterialModel>;
           _isLoading = false;
         });
+
+        _populateForm(_currentProduct!);
+      }
+    } catch (e) {
+      print('❌ [EditProduct] Error cargando datos: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error de carga: Tiempo de espera agotado'),
+          SnackBar(
+            content: Text('Error al cargar producto: $e'),
             backgroundColor: AppTheme.errorColor,
           ),
         );
       }
-    });
+    }
   }
 
   void _populateForm(models.ProductoMaster product) {
@@ -99,13 +111,14 @@ class _EditProductPageState extends State<EditProductPage> {
 
     setState(() {
       _currentProduct = product;
-      _codigoController.text = product.id;
+      _codigoController.text = 'AUTO-${product.id.substring(0,8)}';  // CORREGIDO: SKU legible
       _nombreController.text = product.nombre;
       _precioBaseController.text = product.precioSugerido.toString();
       _precioCostoController.text = "";
       _selectedMarcaId = product.marcaId;
       _selectedCategoriaId = product.categoriaId;
       _selectedMaterialId = product.materialId;
+      _selectedTallaId = product.tallaId;  // AGREGADO: Talla
       _isActive = product.activo;
       _isLoading = false;
     });
@@ -113,25 +126,88 @@ class _EditProductPageState extends State<EditProductPage> {
     print('✅ [EditProduct] Formulario poblado, _isLoading: $_isLoading');
   }
 
-  void _handleSave() {
+  void _handleSave() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    final updateData = {
-      'nombre': _nombreController.text.trim(),
-      'marca_id': _selectedMarcaId,
-      'categoria_id': _selectedCategoriaId,
-      'material_id': _selectedMaterialId,
-      'precio_sugerido': double.parse(_precioBaseController.text),
-      'estado': _isActive ? 'ACTIVO' : 'INACTIVO', // CORREGIDO: usar estado en lugar de activo
-    };
+    setState(() => _isLoading = true);
 
-    _productsBloc.add(UpdateProductoMaster(widget.productId, updateData));
+    try {
+      // Validar duplicados usando método del repository
+      final repository = ProductsRepository();
+      final isDuplicate = await repository.checkProductNameExists(
+        nombre: _nombreController.text.trim(),
+        marcaId: _selectedMarcaId!,
+        tallaId: _selectedTallaId!,
+        materialId: _selectedMaterialId,
+        excludeId: widget.productId,
+      );
+
+      if (isDuplicate) {
+        // Mensaje error con guidelines UX
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 8),
+                Text('Ya existe un producto con ese nombre, marca y talla'),
+              ]),
+              backgroundColor: AppTheme.errorColor,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          );
+        }
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      final updateData = {
+        'nombre': _nombreController.text.trim(),
+        'marca_id': _selectedMarcaId,
+        'categoria_id': _selectedCategoriaId,
+        'talla_id': _selectedTallaId,  // AGREGADO: Talla
+        'material_id': _selectedMaterialId,
+        'precio_sugerido': double.parse(_precioBaseController.text),
+        'estado': _isActive ? 'ACTIVO' : 'INACTIVO',
+      };
+
+      // Actualizar directamente usando repository sin interferir con BLoC principal
+      await repository.updateProductoMaster(widget.productId, updateData);
+
+      if (mounted) {
+        // Mostrar mensaje de éxito
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Producto actualizado exitosamente'),
+            backgroundColor: AppTheme.successColor,
+          ),
+        );
+
+        // Detener loading antes de cerrar
+        setState(() => _isLoading = false);
+
+        // Cerrar modal retornando el producto actualizado
+        Navigator.of(context).pop(_currentProduct);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al validar: $e'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+      setState(() => _isLoading = false);
+    }
   }
 
   void _handleCancel() {
-    context.pop();
+    // No llamar RefreshProducts aquí - mantener datos existentes
+    Navigator.of(context).pop();
   }
 
   @override
@@ -139,61 +215,13 @@ class _EditProductPageState extends State<EditProductPage> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktop = screenWidth >= 1200;
 
-    return BlocConsumer<ProductsBloc, ProductsState>(
-      listener: (context, state) {
-        print('🔄 [EditProduct] Listener recibió estado: ${state.runtimeType}');
+    if (_isLoading) {
+      return _buildLoadingView(isDesktop);
+    }
 
-        if (state is ProductDetailsLoaded) {
-          print('✅ [EditProduct] ProductDetailsLoaded recibido: ${state.product.nombre}');
-          _populateForm(state.product);
-        } else if (state is ProductsLoaded && state.selectedProductArticulos != null) {
-          print('✅ [EditProduct] Artículos cargados: ${state.selectedProductArticulos!.length}');
-          setState(() {
-            _articulos = state.selectedProductArticulos!;
-          });
-        } else if (state is InitialProductDataLoaded) {
-          print('✅ [EditProduct] Datos iniciales cargados: marcas=${state.marcas.length}, categorias=${state.categorias.length}');
-          setState(() {
-            _marcas = state.marcas;
-            _categorias = state.categorias;
-            _materiales = state.materiales;
-          });
-        } else if (state is ProductUpdated) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Producto actualizado exitosamente'),
-              backgroundColor: AppTheme.successColor,
-            ),
-          );
-          // Recargar la lista de productos para reflejar cambios
-          _productsBloc.add(RefreshProducts());
-          if (mounted) {
-            context.pop();
-          }
-        } else if (state is ProductsError) {
-          print('❌ [EditProduct] Error recibido: ${state.message}');
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message),
-              backgroundColor: AppTheme.errorColor,
-            ),
-          );
-          // También quitar el estado de loading si hay error
-          setState(() {
-            _isLoading = false;
-          });
-        }
-      },
-      builder: (context, state) {
-        if (_isLoading) {
-          return _buildLoadingView(isDesktop);
-        }
-
-        return isDesktop
-            ? _buildDesktopModal()
-            : _buildMobilePage();
-      },
-    );
+    return isDesktop
+        ? _buildDesktopModalWithAnimation()
+        : _buildMobilePageWithAnimation();
   }
 
   Widget _buildLoadingView(bool isDesktop) {
@@ -210,95 +238,53 @@ class _EditProductPageState extends State<EditProductPage> {
 
     return isDesktop
         ? Dialog(
-            child: SizedBox(
+            backgroundColor: Colors.transparent,
+            child: Container(
               width: 600,
               height: 400,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
               child: content,
             ),
           )
         : Scaffold(
-            appBar: AppBar(title: const Text('Editar Producto')),
+            backgroundColor: AppTheme.backgroundLight,
+            appBar: AppBar(
+              title: const Text('Editar Producto'),
+              backgroundColor: AppTheme.backgroundLight,
+              elevation: 0,
+            ),
             body: content,
           );
   }
 
-  Widget _buildDesktopModal() {
-    return Dialog(
-      child: Container(
-        width: 600,
-        height: 700,
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  _currentProduct != null
-                    ? 'Editar: ${_currentProduct!.nombre}'
-                    : 'Editar Producto',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: _handleCancel,
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // Form
-            Expanded(
-              child: SingleChildScrollView(
-                child: _buildForm(),
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Buttons
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: _handleCancel,
-                  child: const Text('Cancelar'),
-                ),
-                const SizedBox(width: 12),
-                BlocBuilder<ProductsBloc, ProductsState>(
-                  builder: (context, state) {
-                    final isUpdating = state is ProductsLoading;
-
-                    return ElevatedButton(
-                      onPressed: isUpdating ? null : _handleSave,
-                      child: isUpdating
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Guardar'),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildMobilePage() {
     return Scaffold(
+      backgroundColor: AppTheme.backgroundLight,
       appBar: AppBar(
-        title: Text(_currentProduct != null
-          ? 'Editar: ${_currentProduct!.nombre}'
-          : 'Editar Producto'),
+        title: Text(
+          _currentProduct != null
+            ? 'Editar: ${_currentProduct!.nombre}'
+            : 'Editar Producto',
+          style: const TextStyle(
+            color: AppTheme.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: AppTheme.backgroundLight,
+        elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close),
+          icon: const Icon(Icons.close, color: AppTheme.textPrimary),
           onPressed: _handleCancel,
         ),
       ),
@@ -312,6 +298,9 @@ class _EditProductPageState extends State<EditProductPage> {
 
           return FloatingActionButton.extended(
             onPressed: isUpdating ? null : _handleSave,
+            backgroundColor: AppTheme.primaryTurquoise,
+            foregroundColor: Colors.white,
+            elevation: 4,
             icon: isUpdating
                 ? const SizedBox(
                     width: 16,
@@ -335,18 +324,8 @@ class _EditProductPageState extends State<EditProductPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Código (readonly)
-          TextFormField(
-            controller: _codigoController,
-            decoration: const InputDecoration(
-              labelText: 'Código del Producto',
-              hintText: 'Código único del producto',
-              prefixIcon: Icon(Icons.qr_code),
-            ),
-            readOnly: true,
-            style: TextStyle(color: Colors.grey[600]),
-          ),
-          const SizedBox(height: 16),
+          // Espaciado inicial para mejor visibilidad
+          const SizedBox(height: 8),
 
           // Nombre
           TextFormField(
@@ -369,7 +348,7 @@ class _EditProductPageState extends State<EditProductPage> {
               return null;
             },
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
 
           // Marca
           DropdownButtonFormField<String>(
@@ -455,6 +434,32 @@ class _EditProductPageState extends State<EditProductPage> {
           ),
           const SizedBox(height: 16),
 
+          // Talla selector - AGREGADO
+          DropdownButtonFormField<String>(
+            initialValue: _selectedTallaId,
+            decoration: const InputDecoration(
+              labelText: 'Talla *',
+              hintText: 'Seleccione una talla',
+              prefixIcon: Icon(Icons.straighten),
+              border: const OutlineInputBorder(
+                borderRadius: BorderRadius.all(Radius.circular(12)),
+              ),
+              focusedBorder: const OutlineInputBorder(
+                borderRadius: BorderRadius.all(Radius.circular(12)),
+                borderSide: BorderSide(color: AppTheme.primaryTurquoise, width: 2),
+              ),
+            ),
+            items: _tallas.where((talla) => talla.activo).map((talla) =>
+              DropdownMenuItem(
+                value: talla.id,
+                child: Text(talla.valor),
+              )
+            ).toList(),
+            onChanged: (value) => setState(() => _selectedTallaId = value),
+            validator: (value) => value == null ? 'Talla es requerida' : null,
+          ),
+          const SizedBox(height: 16),
+
           // Precio Base
           TextFormField(
             controller: _precioBaseController,
@@ -508,6 +513,24 @@ class _EditProductPageState extends State<EditProductPage> {
             },
           ),
           const SizedBox(height: 16),
+
+          // Código del Producto (readonly) - Reposicionado para mejor UX
+          TextFormField(
+            controller: _codigoController,
+            decoration: const InputDecoration(
+              labelText: 'Código del Producto',
+              hintText: 'Código único generado automáticamente',
+              prefixIcon: Icon(Icons.qr_code),
+              suffixIcon: Icon(Icons.lock_outline, size: 16),
+              helperText: 'Campo de solo lectura',
+            ),
+            readOnly: true,
+            style: TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 20),
 
           // Estado activo
           SwitchListTile(
@@ -623,6 +646,122 @@ class _EditProductPageState extends State<EditProductPage> {
       isThreeLine: true,
     );
   }
+
+  /// Modal desktop simplificado como el color modal
+  Widget _buildDesktopModalWithAnimation() {
+    return Dialog(
+      child: Container(
+        width: 600,
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
+          maxWidth: 600,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header turquesa
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryTurquoise.withOpacity(0.1),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.edit_outlined,
+                    color: AppTheme.primaryTurquoise,
+                    size: 28,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Editar Producto',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryTurquoise,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: _handleCancel,
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+
+            // Form Content
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: _buildForm(),
+              ),
+            ),
+
+            // Footer gris con botones
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(12),
+                  bottomRight: Radius.circular(12),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: _handleCancel,
+                    child: const Text('Cancelar'),
+                  ),
+                  const SizedBox(width: 12),
+                  BlocBuilder<ProductsBloc, ProductsState>(
+                    builder: (context, state) {
+                      final isUpdating = state is ProductsLoading;
+
+                      return ElevatedButton(
+                        onPressed: isUpdating ? null : _handleSave,
+                        child: isUpdating
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Text('Actualizar'),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Página mobile con animación suave
+  Widget _buildMobilePageWithAnimation() {
+    return TweenAnimationBuilder<Offset>(
+      duration: const Duration(milliseconds: 350),
+      tween: Tween(begin: const Offset(0, 0.1), end: Offset.zero),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return FractionalTranslation(
+          translation: value,
+          child: _buildMobilePage(),
+        );
+      },
+    );
+  }
+
+
+
 
   @override
   void dispose() {

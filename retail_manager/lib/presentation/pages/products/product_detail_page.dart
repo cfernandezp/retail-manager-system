@@ -7,6 +7,9 @@ import '../../../data/models/product_models.dart';
 import '../../bloc/products/products_bloc.dart';
 import '../../widgets/common/loading_indicator.dart';
 import '../../widgets/common/error_message.dart';
+import '../../widgets/products/edit_articulo_dialog.dart';
+import '../../widgets/products/create_articulo_dialog.dart';
+import '../../../data/repositories/products_repository_simple.dart';
 
 /// Página completa de Vista Detalle de Producto
 class ProductDetailPage extends StatefulWidget {
@@ -23,6 +26,7 @@ class ProductDetailPage extends StatefulWidget {
 
 class _ProductDetailPageState extends State<ProductDetailPage> {
   late ProductsBloc _productsBloc;
+  final ProductsRepository _repository = ProductsRepository();
   final currencyFormatter = NumberFormat.currency(
     locale: 'es_PE',
     symbol: 'S/ ',
@@ -528,59 +532,99 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
             border: Border.all(color: Colors.grey[300]!),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Row(
+          child: Column(
             children: [
-              // Color chip
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: _getColorFromHex(articulo.color?.hexColor),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey[400]!),
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Info del color
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      articulo.color?.nombre ?? 'Color sin nombre',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w500,
-                      ),
+              Row(
+                children: [
+                  // Color chip
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: _getColorFromHex(articulo.color?.hexColor),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey[400]!),
                     ),
-                    Text(
-                      'SKU: ${articulo.skuAuto}',
+                  ),
+                  const SizedBox(width: 12),
+                  // Info del color
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          articulo.color?.nombre ?? 'Color sin nombre',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Text(
+                          'SKU: ${articulo.skuAuto}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.textSecondaryColor,
+                          ),
+                        ),
+                        Text(
+                          'Precio: ${currencyFormatter.format(articulo.precioSugerido)}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Stock
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: totalStock > 0
+                          ? AppTheme.successColor.withOpacity(0.1)
+                          : AppTheme.errorColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '$totalStock unidades',
                       style: TextStyle(
                         fontSize: 12,
-                        color: AppTheme.textSecondaryColor,
+                        fontWeight: FontWeight.w500,
+                        color: totalStock > 0
+                            ? AppTheme.successColor
+                            : AppTheme.errorColor,
                       ),
                     ),
-                  ],
-                ),
-              ),
-              // Stock
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: totalStock > 0
-                      ? AppTheme.successColor.withOpacity(0.1)
-                      : AppTheme.errorColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '$totalStock unidades',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: totalStock > 0
-                        ? AppTheme.successColor
-                        : AppTheme.errorColor,
                   ),
-                ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // Botones de acción
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton.icon(
+                    onPressed: () => _editArticulo(articulo),
+                    icon: const Icon(Icons.edit_outlined, size: 16),
+                    label: const Text('Editar'),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton.icon(
+                    onPressed: () => _deleteArticulo(articulo),
+                    icon: const Icon(Icons.delete_outline, size: 16),
+                    label: const Text('Eliminar'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppTheme.errorColor,
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -597,7 +641,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
         final totalStock = _calculateArticuloStock(articulo);
 
         return Container(
-          width: 200,
+          width: 220,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             border: Border.all(color: Colors.grey[300]!),
@@ -624,6 +668,34 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       articulo.color?.nombre ?? 'Sin nombre',
                       style: const TextStyle(fontWeight: FontWeight.w500),
                       overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  // Botón editar compacto
+                  PopupMenuButton<String>(
+                    onSelected: (value) => _handleArticuloAction(value, articulo),
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: ListTile(
+                          leading: Icon(Icons.edit_outlined),
+                          title: Text('Editar'),
+                          dense: true,
+                        ),
+                      ),
+                      const PopupMenuDivider(),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: ListTile(
+                          leading: Icon(Icons.delete_outline, color: Colors.red),
+                          title: Text('Eliminar', style: TextStyle(color: Colors.red)),
+                          dense: true,
+                        ),
+                      ),
+                    ],
+                    child: Icon(
+                      Icons.more_vert,
+                      size: 18,
+                      color: Colors.grey[600],
                     ),
                   ),
                 ],
@@ -751,11 +823,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
 
   Widget _buildFloatingActionButton(ProductoMaster product) {
     return FloatingActionButton.extended(
-      onPressed: () => _duplicateProduct(product),
+      onPressed: () => _createNewArticulo(product),
       backgroundColor: AppTheme.primaryTurquoise,
-      icon: const Icon(Icons.content_copy, color: Colors.white),
+      icon: const Icon(Icons.palette_outlined, color: Colors.white),
       label: const Text(
-        'Duplicar Producto',
+        'Nuevo Artículo',
         style: TextStyle(color: Colors.white),
       ),
     );
@@ -988,5 +1060,226 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
 
     // Navegar de vuelta a la lista
     context.go('/products');
+  }
+
+  // ================== MANEJO DE ARTÍCULOS ==================
+
+  void _handleArticuloAction(String action, Articulo articulo) {
+    switch (action) {
+      case 'edit':
+        _editArticulo(articulo);
+        break;
+      case 'delete':
+        _deleteArticulo(articulo);
+        break;
+    }
+  }
+
+  Future<void> _editArticulo(Articulo articulo) async {
+    try {
+      // Obtener colores disponibles y únicos
+      final availableColors = await _repository.getColores();
+      final coloresUnicos = await _repository.getColoresUnicos();
+
+      if (!mounted) return;
+
+      final result = await showDialog<Articulo>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => EditArticuloDialog(
+          articulo: articulo,
+          availableColors: availableColors,
+          coloresUnicos: coloresUnicos, // AGREGADO: Pasar colores únicos
+        ),
+      );
+
+      if (result != null) {
+        // Recargar detalles del producto para mostrar cambios
+        _productsBloc.add(LoadProductDetails(widget.productId));
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Artículo actualizado exitosamente'),
+            backgroundColor: AppTheme.successColor,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al cargar datos: ${e.toString()}'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+    }
+  }
+
+  void _deleteArticulo(Articulo articulo) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Eliminar Artículo'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '¿Estás seguro de que deseas eliminar este artículo?',
+              style: const TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          color: _getColorFromHex(articulo.color?.hexColor),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.grey[400]!),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        articulo.color?.nombre ?? 'Color sin nombre',
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'SKU: ${articulo.skuAuto}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondaryColor,
+                    ),
+                  ),
+                  Text(
+                    'Precio: ${currencyFormatter.format(articulo.precioSugerido)}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondaryColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Esta acción no se puede deshacer.',
+              style: TextStyle(
+                fontSize: 14,
+                color: AppTheme.errorColor,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _performArticuloDeletion(articulo);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.errorColor,
+            ),
+            child: const Text('Eliminar', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _performArticuloDeletion(Articulo articulo) async {
+    try {
+      await _repository.deleteArticulo(articulo.id);
+
+      // Recargar detalles del producto
+      _productsBloc.add(LoadProductDetails(widget.productId));
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Artículo eliminado exitosamente'),
+          backgroundColor: AppTheme.successColor,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al eliminar artículo: ${e.toString()}'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+    }
+  }
+
+  // ================== CREAR NUEVO ARTÍCULO ==================
+
+  Future<void> _createNewArticulo(ProductoMaster product) async {
+    try {
+      // Obtener colores disponibles y únicos
+      final availableColors = await _repository.getColores();
+      final coloresUnicos = await _repository.getColoresUnicos();
+
+      if (!mounted) return;
+
+      // Filtrar colores que ya están en uso para este producto
+      final usedColorIds = (product.articulos ?? []).map((a) => a.colorId).toSet();
+      final availableColorsFiltered = availableColors.where((color) => !usedColorIds.contains(color.id)).toList();
+
+      if (availableColorsFiltered.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No hay colores disponibles. Todos los colores ya están asignados a este producto.'),
+            backgroundColor: AppTheme.warningColor,
+          ),
+        );
+        return;
+      }
+
+      final result = await showDialog<Articulo>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => CreateArticuloDialog(
+          product: product,
+          availableColors: availableColorsFiltered,
+          coloresUnicos: coloresUnicos,
+        ),
+      );
+
+      if (result != null) {
+        // Recargar detalles del producto para mostrar el nuevo artículo
+        _productsBloc.add(LoadProductDetails(widget.productId));
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Artículo creado exitosamente'),
+            backgroundColor: AppTheme.successColor,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al cargar datos: ${e.toString()}'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+    }
   }
 }

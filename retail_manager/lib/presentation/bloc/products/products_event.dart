@@ -180,3 +180,13 @@ class UpdateProductoMaster extends ProductsEvent {
   @override
   List<Object?> get props => [productId, updateData];
 }
+
+/// Cargar datos de edición optimizados (producto + dropdowns en paralelo)
+class LoadEditProductData extends ProductsEvent {
+  final String productId;
+
+  const LoadEditProductData(this.productId);
+
+  @override
+  List<Object?> get props => [productId];
+}

@@ -22,9 +22,11 @@ class _ColorsPageState extends State<ColorsPage> {
 
   List<ColorData> _colors = [];
   List<ColorData> _filteredColors = [];
+  List<ColorData> _coloresUnicos = []; // AGREGADO: Lista de colores únicos para resolución
   bool _isLoading = true;
   String? _error;
   bool _showInactiveColors = false;
+  String _tipoColorFilter = 'TODOS'; // NUEVO: 'TODOS', 'UNICO', 'VARIOS'
 
   @override
   void initState() {
@@ -46,8 +48,10 @@ class _ColorsPageState extends State<ColorsPage> {
 
     try {
       final colors = await _repository.getColores();
+      final coloresUnicos = await _repository.getColoresUnicos(); // AGREGADO: Cargar colores únicos
       setState(() {
         _colors = colors;
+        _coloresUnicos = coloresUnicos; // AGREGADO: Guardar colores únicos
         _filteredColors = _applyFilters(colors);
         _isLoading = false;
       });
@@ -67,13 +71,19 @@ class _ColorsPageState extends State<ColorsPage> {
       filtered = filtered.where((color) => color.activo).toList();
     }
 
+    // NUEVO: Filtro por tipo de color
+    if (_tipoColorFilter != 'TODOS') {
+      filtered = filtered.where((color) => color.tipoColor == _tipoColorFilter).toList();
+    }
+
     // Filtro por búsqueda
     final searchQuery = _searchController.text.toLowerCase().trim();
     if (searchQuery.isNotEmpty) {
       filtered = filtered.where((color) {
         return color.nombre.toLowerCase().contains(searchQuery) ||
                (color.codigoAbrev?.toLowerCase().contains(searchQuery) ?? false) ||
-               (color.hexColor?.toLowerCase().contains(searchQuery) ?? false);
+               (color.hexColor?.toLowerCase().contains(searchQuery) ?? false) ||
+               (color.descripcionCompleta?.toLowerCase().contains(searchQuery) ?? false);
       }).toList();
     }
 
@@ -89,6 +99,14 @@ class _ColorsPageState extends State<ColorsPage> {
   void _toggleShowInactive() {
     setState(() {
       _showInactiveColors = !_showInactiveColors;
+      _filteredColors = _applyFilters(_colors);
+    });
+  }
+
+  // NUEVO: Cambiar filtro de tipo de color
+  void _onTipoColorFilterChanged(String tipo) {
+    setState(() {
+      _tipoColorFilter = tipo;
       _filteredColors = _applyFilters(_colors);
     });
   }
@@ -341,6 +359,40 @@ class _ColorsPageState extends State<ColorsPage> {
                   size: 18,
                 ),
               ),
+
+              const SizedBox(width: 8),
+
+              // NUEVO: Filtros de tipo de color
+              FilterChip(
+                label: Text('Todos'),
+                selected: _tipoColorFilter == 'TODOS',
+                onSelected: (_) => _onTipoColorFilterChanged('TODOS'),
+                avatar: Icon(Icons.palette, size: 18),
+              ),
+
+              const SizedBox(width: 8),
+
+              FilterChip(
+                label: Text('Únicos'),
+                selected: _tipoColorFilter == 'UNICO',
+                onSelected: (_) => _onTipoColorFilterChanged('UNICO'),
+                avatar: Icon(Icons.circle, size: 18),
+                backgroundColor: _tipoColorFilter == 'UNICO'
+                    ? AppTheme.primaryTurquoise.withOpacity(0.2)
+                    : null,
+              ),
+
+              const SizedBox(width: 8),
+
+              FilterChip(
+                label: Text('Múltiples'),
+                selected: _tipoColorFilter == 'VARIOS',
+                onSelected: (_) => _onTipoColorFilterChanged('VARIOS'),
+                avatar: Icon(Icons.palette_outlined, size: 18),
+                backgroundColor: _tipoColorFilter == 'VARIOS'
+                    ? Colors.purple.withOpacity(0.2)
+                    : null,
+              ),
             ],
           ),
         ],
@@ -425,7 +477,7 @@ class _ColorsPageState extends State<ColorsPage> {
 
   Widget _buildEmptyState() {
     final hasSearch = _searchController.text.isNotEmpty;
-    final hasFilters = !_showInactiveColors;
+    final hasFilters = !_showInactiveColors || _tipoColorFilter != 'TODOS';
 
     return Center(
       child: Column(
@@ -463,6 +515,7 @@ class _ColorsPageState extends State<ColorsPage> {
                     _searchController.clear();
                     setState(() {
                       _showInactiveColors = true;
+                      _tipoColorFilter = 'TODOS'; // NUEVO: Resetear filtro de tipo
                       _filteredColors = _applyFilters(_colors);
                     });
                   }
@@ -490,6 +543,7 @@ class _ColorsPageState extends State<ColorsPage> {
           final color = _filteredColors[index];
           return ColorCard(
             color: color,
+            coloresUnicos: _coloresUnicos, // AGREGADO: Pasar colores únicos para resolución
             onEdit: () => _showEditColorDialog(color),
             onToggleStatus: () => _toggleColorStatus(color),
             onDelete: () => _deleteColor(color),

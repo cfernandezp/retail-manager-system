@@ -9,6 +9,7 @@ import '../../bloc/products/products_bloc.dart';
 import '../../widgets/products/product_master_card.dart';
 import '../../widgets/products/product_filters.dart';
 import '../../widgets/common/shimmer_widget.dart';
+import 'edit_product_page.dart';
 
 /// Página principal de gestión de productos con interfaz web-first
 class ProductsPage extends StatefulWidget {
@@ -652,8 +653,26 @@ class _ProductsPageState extends State<ProductsPage>
     context.push('/products/$productId');
   }
 
-  void _navigateToEditProduct(String productId) {
-    context.push('/products/$productId/edit');
+  Future<void> _navigateToEditProduct(String productId) async {
+    final result = await showDialog(
+      context: context,
+      builder: (context) => BlocProvider.value(
+        value: context.read<ProductsBloc>(),
+        child: EditProductPage(productId: productId),
+      ),
+    );
+
+    // Refrescar solo si se guardó exitosamente para actualizar la vista
+    if (result != null) {
+      // Usar LoadProducts en lugar de RefreshProducts para mantener filtros
+      final currentState = context.read<ProductsBloc>().state;
+      if (currentState is ProductsLoaded) {
+        context.read<ProductsBloc>().add(LoadProducts(
+          filters: currentState.filters,
+          pagination: currentState.pagination,
+        ));
+      }
+    }
   }
 
   void _duplicateProduct(CatalogoCompleto product) {

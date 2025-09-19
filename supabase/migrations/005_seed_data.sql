@@ -222,4 +222,61 @@ UNION ALL
 SELECT 'tiendas' as tabla, COUNT(*) as registros FROM tiendas WHERE activa = true;
 */
 
+-- =====================================================
+-- DATOS SEMILLA MÓDULO DE VENTAS
+-- =====================================================
+
+-- Insertar permisos de descuento básicos por rol
+INSERT INTO permisos_descuento (rol_usuario, descuento_maximo_porcentaje, requiere_aprobacion, puede_aprobar_descuentos, activo) VALUES
+('vendedor_junior', 5.0, true, false, true),
+('vendedor_senior', 10.0, true, false, true),
+('supervisor', 20.0, false, true, true),
+('admin', 100.0, false, true, true);
+
+-- Estrategia de descuento estándar para medias (ejemplo real)
+INSERT INTO estrategias_descuento (nombre, descripcion, rangos_cantidad, activa) VALUES
+('Descuento Estándar por Cantidad',
+ 'Descuentos automáticos por cantidad de productos - aplicable a todos los productos',
+ '[
+    {"cantidad_min": 1, "cantidad_max": 2, "descuento_porcentaje": 0},
+    {"cantidad_min": 3, "cantidad_max": 11, "descuento_porcentaje": 6.67},
+    {"cantidad_min": 12, "cantidad_max": 999, "descuento_porcentaje": 5.0}
+ ]'::jsonb,
+ true);
+
+-- Estrategia específica para medias con descuentos más agresivos
+INSERT INTO estrategias_descuento (nombre, descripcion, categoria_id, rangos_cantidad, activa) VALUES
+('Promoción Medias por Mayor',
+ 'Descuentos especiales para venta de medias por cantidad',
+ (SELECT id FROM categorias WHERE nombre = 'Medias' LIMIT 1),
+ '[
+    {"cantidad_min": 1, "cantidad_max": 2, "descuento_porcentaje": 0},
+    {"cantidad_min": 3, "cantidad_max": 5, "descuento_porcentaje": 7.0},
+    {"cantidad_min": 6, "cantidad_max": 11, "descuento_porcentaje": 10.0},
+    {"cantidad_min": 12, "cantidad_max": 23, "descuento_porcentaje": 12.0},
+    {"cantidad_min": 24, "cantidad_max": 999, "descuento_porcentaje": 15.0}
+ ]'::jsonb,
+ true);
+
+-- VERIFICACIÓN DATOS MÓDULO VENTAS
+-- =====================================================
+
+/*
+-- Consultas para verificar datos del módulo de ventas
+SELECT 'permisos_descuento' as tabla, COUNT(*) as registros FROM permisos_descuento WHERE activo = true
+UNION ALL
+SELECT 'estrategias_descuento' as tabla, COUNT(*) as registros FROM estrategias_descuento WHERE activa = true;
+
+-- Ver permisos por rol
+SELECT rol_usuario, descuento_maximo_porcentaje, requiere_aprobacion, puede_aprobar_descuentos
+FROM permisos_descuento
+WHERE activo = true
+ORDER BY descuento_maximo_porcentaje;
+
+-- Ver estrategias activas
+SELECT nombre, descripcion, rangos_cantidad
+FROM estrategias_descuento
+WHERE activa = true;
+*/
+
 -- Fin de datos semilla limpios

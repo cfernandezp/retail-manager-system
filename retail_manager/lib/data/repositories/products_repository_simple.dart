@@ -363,6 +363,115 @@ class ProductsRepository {
     }
   }
 
+  // ================== MULTI-COLOR METHODS ==================
+
+  /// Obtener solo colores únicos (para crear combinaciones)
+  Future<List<ColorData>> getColoresUnicos() async {
+    try {
+      print('🔄 [REPO] Obteniendo colores únicos...');
+
+      final response = await _client
+          .from('colores')
+          .select('*')
+          .eq('tipo_color', 'UNICO')
+          .eq('activo', true)
+          .order('nombre');
+
+      print('✅ [REPO] Colores únicos obtenidos: ${response.length}');
+      return (response as List)
+          .map((json) => ColorData.fromJson(json))
+          .toList();
+    } catch (e) {
+      print('❌ [REPO] Error al obtener colores únicos: $e');
+      throw Exception('Error al obtener colores únicos: $e');
+    }
+  }
+
+  /// Crear color múltiple
+  Future<ColorData> createColorMultiple({
+    required String nombre,
+    required List<String> coloresComponentesIds,
+    required String descripcionCompleta,
+  }) async {
+    try {
+      print('🔄 [REPO] Creando color múltiple: $nombre');
+      print('   Componentes: $coloresComponentesIds');
+
+      // Validaciones
+      if (coloresComponentesIds.length < 2 || coloresComponentesIds.length > 3) {
+        throw Exception('Se requieren entre 2 y 3 colores para crear una combinación');
+      }
+
+      // Obtener color primario para hex_color
+      final colorPrimario = await _client
+          .from('colores')
+          .select('codigo_hex')
+          .eq('id', coloresComponentesIds.first)
+          .single();
+
+      final colorData = {
+        'nombre': nombre,
+        'codigo_hex': colorPrimario['codigo_hex'],
+        'codigo_abrev': _generateAbreviatura(nombre),
+        'tipo_color': 'VARIOS',
+        'colores_componentes': coloresComponentesIds,
+        'descripcion_completa': descripcionCompleta,
+        'activo': true,
+      };
+
+      final response = await _client
+          .from('colores')
+          .insert(colorData)
+          .select()
+          .single();
+
+      print('✅ [REPO] Color múltiple creado exitosamente');
+      return ColorData.fromJson(response);
+    } catch (e) {
+      print('❌ [REPO] Error al crear color múltiple: $e');
+      throw Exception('Error al crear color múltiple: $e');
+    }
+  }
+
+  /// Obtener detalles de colores componentes
+  Future<List<ColorData>> getColoresComponentes(String colorMultipleId) async {
+    try {
+      print('🔄 [REPO] Obteniendo componentes del color: $colorMultipleId');
+
+      // 1. Obtener el color múltiple
+      final colorMultiple = await _client
+          .from('colores')
+          .select('colores_componentes')
+          .eq('id', colorMultipleId)
+          .single();
+
+      final componentesIds = List<String>.from(colorMultiple['colores_componentes']);
+      print('   IDs componentes: $componentesIds');
+
+      // 2. Obtener detalles de colores componentes
+      final response = await _client
+          .from('colores')
+          .select('*')
+          .inFilter('id', componentesIds);
+
+      final componentes = (response as List)
+          .map((json) => ColorData.fromJson(json))
+          .toList();
+
+      print('✅ [REPO] Componentes obtenidos: ${componentes.length}');
+      return componentes;
+    } catch (e) {
+      print('❌ [REPO] Error al obtener componentes del color: $e');
+      throw Exception('Error al obtener componentes del color: $e');
+    }
+  }
+
+  /// Método helper para generar abreviatura
+  String _generateAbreviatura(String nombre) {
+    final palabras = nombre.split('+');
+    return palabras.map((p) => p.trim().substring(0, 1).toUpperCase()).join('');
+  }
+
   // ================== TIENDAS ==================
   Future<List<Tienda>> getTiendas() async {
     try {
@@ -748,6 +857,146 @@ class ProductsRepository {
         .eq('tienda_id', tiendaId);
   }
 
+  // ================== ARTÍCULOS CRUD ==================
+
+  /// Crea un nuevo artículo individual
+  Future<Articulo> createArticulo(Map<String, dynamic> articuloData) async {
+    try {
+      print('🆕 [REPO] Creando nuevo artículo');
+      print('🆕 [REPO] Datos: $articuloData');
+
+      // Agregar timestamp de creación
+      articuloData['created_at'] = DateTime.now().toIso8601String();
+
+      final response = await _client
+          .from('articulos')
+          .insert(articuloData)
+          .select('''
+            *,
+            color:colores(id, nombre, hex_color, tipo_color, activo, created_at),
+            producto:productos_master(id, nombre, marca_id, categoria_id, material_id, talla_id)
+          ''')
+          .single();
+
+      print('✅ [REPO] Artículo creado exitosamente: ${response['id']}');
+
+      return Articulo.fromJson(response);
+    } catch (e) {
+      print('❌ [REPO] Error creando artículo: $e');
+      rethrow;
+    }
+  }
+
+  /// Actualiza un artículo existente
+  Future<Articulo> updateArticulo(String articuloId, Map<String, dynamic> articuloData) async {
+    try {
+      print('🔄 [REPO] Actualizando artículo: $articuloId');
+      print('🔄 [REPO] Datos: $articuloData');
+
+      // Agregar timestamp de actualización
+      articuloData['updated_at'] = DateTime.now().toIso8601String();
+
+      final response = await _client
+          .from('articulos')
+          .update(articuloData)
+          .eq('id', articuloId)
+          .select('''
+            *,
+            colores(id, nombre, hex_color),
+            productos_master(id, nombre)
+          ''')
+          .single();
+
+      print('✅ [REPO] Artículo actualizado exitosamente: $response');
+      return Articulo.fromJson(response);
+    } catch (e) {
+      print('❌ [REPO] Error al actualizar artículo: $e');
+      throw Exception('Error al actualizar artículo: $e');
+    }
+  }
+
+  /// Elimina un artículo (soft delete - marca como inactivo)
+  Future<void> deleteArticulo(String articuloId) async {
+    try {
+      print('🔄 [REPO] Eliminando artículo (soft delete): $articuloId');
+
+      await _client
+          .from('articulos')
+          .update({
+            'activo': false,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', articuloId);
+
+      print('✅ [REPO] Artículo marcado como inactivo exitosamente');
+    } catch (e) {
+      print('❌ [REPO] Error al eliminar artículo: $e');
+      throw Exception('Error al eliminar artículo: $e');
+    }
+  }
+
+  /// Verifica si existe un artículo con el mismo producto y color
+  Future<bool> checkArticuloColorDuplicate({
+    required String productoId,
+    required String colorId,
+    String? excludeArticuloId,
+  }) async {
+    try {
+      print('🔄 [REPO] Verificando duplicado artículo: producto=$productoId, color=$colorId');
+
+      var query = _client
+          .from('articulos')
+          .select('id')
+          .eq('producto_master_id', productoId)
+          .eq('color_id', colorId)
+          .eq('activo', true); // Solo artículos activos
+
+      if (excludeArticuloId != null && excludeArticuloId.isNotEmpty) {
+        query = query.neq('id', excludeArticuloId);
+        print('   Excluyendo artículo ID: $excludeArticuloId');
+      }
+
+      final response = await query.limit(1);
+      final exists = response.isNotEmpty;
+
+      print(exists ? '⚠️ [REPO] Artículo duplicado encontrado' : '✅ [REPO] Combinación disponible');
+      return exists;
+
+    } catch (e) {
+      print('❌ [REPO] Error verificando duplicado artículo: $e');
+      return false; // En caso de error, permitir la operación
+    }
+  }
+
+  /// Obtiene un artículo específico por ID con relaciones
+  Future<Articulo?> getArticuloById(String articuloId) async {
+    try {
+      print('🔄 [REPO] Obteniendo artículo por ID: $articuloId');
+
+      final response = await _client
+          .from('articulos')
+          .select('''
+            *,
+            colores(id, nombre, hex_color),
+            productos_master(id, nombre)
+          ''')
+          .eq('id', articuloId)
+          .maybeSingle();
+
+      if (response == null) {
+        print('⚠️ [REPO] No se encontró artículo con ID: $articuloId');
+        return null;
+      }
+
+      print('✅ [REPO] Artículo obtenido exitosamente');
+      return Articulo.fromJson(response);
+
+    } catch (e) {
+      print('❌ [REPO] Error al obtener artículo: $e');
+      throw Exception('Error al obtener artículo: $e');
+    }
+  }
+
   // ================== GESTIÓN DE PRECIOS POR ARTÍCULO ==================
 
   /// Actualiza precios de costo y venta para un artículo específico en una tienda
@@ -836,6 +1085,84 @@ class ProductsRepository {
     } catch (e) {
       print('❌ [REPO] Error al obtener precios: $e');
       return null;
+    }
+  }
+
+  /// Verifica si existe un producto con el mismo nombre, marca y talla
+  /// Útil para validar duplicados antes de crear/editar productos
+  Future<bool> checkProductNameExists({
+    required String nombre,
+    required String marcaId,
+    required String tallaId,
+    String? materialId,
+    String? excludeId,
+  }) async {
+    try {
+      print('🔄 [REPO] Verificando duplicados: nombre="$nombre", marca=$marcaId, talla=$tallaId');
+
+      var query = _client
+          .from('productos_master')
+          .select('id')
+          .eq('nombre', nombre.trim())
+          .eq('marca_id', marcaId)
+          .eq('talla_id', tallaId)
+          .eq('estado', 'ACTIVO'); // Solo productos activos
+
+      if (materialId != null && materialId.isNotEmpty) {
+        query = query.eq('material_id', materialId);
+        print('   Con filtro material: $materialId');
+      }
+
+      if (excludeId != null && excludeId.isNotEmpty) {
+        query = query.neq('id', excludeId);
+        print('   Excluyendo ID: $excludeId');
+      }
+
+      final response = await query.limit(1);
+      final exists = response.isNotEmpty;
+
+      print(exists ? '⚠️ [REPO] Producto duplicado encontrado' : '✅ [REPO] Nombre disponible');
+      return exists;
+
+    } catch (e) {
+      print('❌ [REPO] Error verificando duplicados: $e');
+      // En caso de error, permitir la operación (fail-safe)
+      return false;
+    }
+  }
+
+  /// Cargar datos de edición optimizado: producto + datos de dropdowns en paralelo
+  Future<Map<String, dynamic>> loadEditProductData(String productId) async {
+    try {
+      print('🔄 [REPO] Carga optimizada de datos de edición para producto: $productId');
+
+      // Ejecutar todas las queries en paralelo para máxima velocidad
+      final results = await Future.wait([
+        getProductoMasterById(productId),
+        getMarcas(),
+        getCategorias(),
+        getTallas(),
+        getMateriales(),
+      ]);
+
+      final producto = results[0] as ProductoMaster?;
+      if (producto == null) {
+        throw Exception('Producto no encontrado');
+      }
+
+      print('✅ [REPO] Datos de edición cargados exitosamente en paralelo');
+
+      return {
+        'product': producto,
+        'marcas': results[1] as List<Marca>,
+        'categorias': results[2] as List<Categoria>,
+        'tallas': results[3] as List<Talla>,
+        'materiales': results[4] as List<MaterialModel>,
+      };
+
+    } catch (e) {
+      print('❌ [REPO] Error en carga optimizada: $e');
+      throw Exception('Error al cargar datos de edición: $e');
     }
   }
 }
